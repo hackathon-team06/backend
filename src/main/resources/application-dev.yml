@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: {로컬 데베 url 입력}
+    password: {로컬 데베 password 입력}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
