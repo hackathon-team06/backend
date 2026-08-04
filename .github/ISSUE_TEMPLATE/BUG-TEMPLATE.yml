@@ -1,6 +1,6 @@
 name: Bug Template
 description: 버그 리포트할 때 쓰는 템플릿
-title: "[Bug]: Bug Title"
+title: "[Bug] # (번호) :  "
 labels: ["bug"]
 
 body:
