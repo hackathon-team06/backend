@@ -1,0 +1,76 @@
+name: Bug Template
+description: 버그 리포트할 때 쓰는 템플릿
+title: "[Bug]: Bug Title"
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug 설명
+      description: 발생한 버그에 대한 설명을 적어주세요.
+      placeholder: ex. 타이머 시작 버튼 클릭 시 앱이 종료됨
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce-steps
+    attributes:
+      label: 재현 방법
+      description: 버그를 재현하기 위한 단계를 순서대로 적어주세요.
+      placeholder: |
+        1. 홈 화면 진입
+        2. 타이머 시작 버튼 클릭
+        3. 앱이 종료됨
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 기대 동작
+      description: 원래 정상적으로 동작해야 할 방식을 적어주세요.
+      placeholder: ex. 타이머가 정상적으로 시작되어야 함
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 실제 동작
+      description: 실제로 발생한 동작을 적어주세요.
+      placeholder: ex. 타이머 시작 버튼 클릭 시 앱이 강제 종료됨
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 실행 환경(Optional)
+      description: 버그가 발생한 환경 정보를 적어주세요. (OS, 기기, 버전 등)
+      placeholder: |
+        - OS: iOS 17.2
+        - Device: iPhone 15 Pro
+        - App Version: 1.0.0
+    validations:
+      required: false
+  - type: input
+    id: related-issue
+    attributes:
+      label: Related Issue(Optional)
+      description: 관련된 Issue나 PR이 있다면 적어주세요.
+      placeholder: "ex. #14"
+    validations:
+      required: false
+  - type: textarea
+    id: related-view
+    attributes:
+      label: Related View(Optional)
+      description: 버그가 발생한 View(화면)
+      placeholder: ex. HomeView
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots/Logs(Optional)
+      description: 스크린샷, 영상, 또는 에러 로그가 있다면 첨부해주세요.
+      placeholder: 이미지를 드래그하거나 로그를 붙여넣어 주세요.
+    validations:
+      required: false
