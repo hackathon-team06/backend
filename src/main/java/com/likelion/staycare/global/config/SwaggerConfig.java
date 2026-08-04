@@ -36,9 +36,9 @@ public class SwaggerConfig {
                         )
                 )
                 .info(new Info()
-                        .title("LikeLion API 명세서")
+                        .title("Stay-care API 명세서")
                         .version("1.0")
-                        .description("Swagger 실습"));
+                        .description("Swagger"));
     }
 
     @Bean
