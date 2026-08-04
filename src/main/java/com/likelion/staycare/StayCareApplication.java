@@ -9,5 +9,4 @@ public class StayCareApplication {
     public static void main(String[] args) {
         SpringApplication.run(StayCareApplication.class, args);
     }
-
 }
