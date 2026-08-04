@@ -24,3 +24,14 @@ jobs:
 
       - name: Build
         run: ./gradlew clean bootJar -x test
+
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "SSH connection successful"
+            docker --version
+            mkdir -p /home/ubuntu/staycare
