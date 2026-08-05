@@ -73,6 +73,7 @@ jobs:
               --name staycare-api \
               --restart unless-stopped \
               -p 8080:8080 \
+              -e JWT_SECRET1="${{ secrets.JWT_SECRET1 }}" \
               staycare-api:latest
 
             sleep 10
