@@ -37,7 +37,6 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
 
-
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -51,6 +50,10 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
+
+                        // GitHub Actions 배포 시 Health Check 허용
+                        .requestMatchers("/api/health").permitAll()
+
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .anyRequest().authenticated()
