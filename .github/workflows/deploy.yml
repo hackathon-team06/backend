@@ -1,0 +1,81 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew clean bootJar -x test
+
+      - name: Prepare deployment files
+        run: |
+          mkdir -p deploy
+          cp build/libs/*.jar deploy/app.jar
+          cp Dockerfile deploy/Dockerfile
+
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "SSH connection successful"
+            docker --version
+            mkdir -p /home/ubuntu/staycare
+
+      - name: Upload files to EC2
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "deploy/*"
+          target: "/home/ubuntu/staycare"
+          strip_components: 1
+
+      - name: Deploy Docker container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /home/ubuntu/staycare
+
+            docker build -t staycare-api:latest .
+
+            docker stop staycare-api 2>/dev/null || true
+            docker rm staycare-api 2>/dev/null || true
+
+            docker run -d \
+              --name staycare-api \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              staycare-api:latest
+
+            sleep 10
+
+            curl --fail http://localhost:8080/api/health
+
+            docker image prune -f
