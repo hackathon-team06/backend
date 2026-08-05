@@ -20,7 +20,8 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(Arrays.asList(allowedOrigins));
+        // 배포 환경의 Origin 패턴 허용
+        config.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
 
         config.setAllowedMethods(
                 List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
