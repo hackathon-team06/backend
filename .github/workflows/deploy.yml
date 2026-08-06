@@ -73,10 +73,20 @@ jobs:
               --name staycare-api \
               --restart unless-stopped \
               -p 8080:8080 \
+              -e DB_URL2="${{ secrets.DB_URL2 }}" \
+              -e DB_USERNAME2="${{ secrets.DB_USERNAME2 }}" \
+              -e DB_PASSWORD2="${{ secrets.DB_PASSWORD2 }}" \
+              -e JWT_SECRET1="${{ secrets.JWT_SECRET1 }}" \
               staycare-api:latest
 
-            sleep 10
+            sleep 20
 
-            curl --fail http://localhost:8080/api/health
+            docker logs --tail 50 staycare-api
+
+            curl --retry 10 \
+                 --retry-delay 5 \
+                 --retry-connrefused \
+                 --fail \
+                 http://localhost:8080/api/health
 
             docker image prune -f
