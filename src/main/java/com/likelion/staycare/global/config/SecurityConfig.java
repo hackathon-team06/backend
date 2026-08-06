@@ -54,6 +54,8 @@ public class SecurityConfig {
                         // GitHub Actions 배포 시 Health Check 허용
                         .requestMatchers("/api/health").permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/diagnoses/options").permitAll()
+
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .anyRequest().authenticated()
