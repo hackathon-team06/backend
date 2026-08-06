@@ -13,11 +13,10 @@ public record UserResponse(
         String goal,
         AgeRange ageRange,
         SkinType skinType,
+        SleepHours sleepHours,
         OutingFrequency outingFrequency,
         CheckCycle checkCycle,
-        CareMotivation careMotivation,
-        LocalDateTime lastDiagnosisAt,
-        Boolean hasDiagnosis
+        CareMotivation careMotivation
 ) {
     public static UserResponse from(User user) {
         return UserResponse.builder()
@@ -26,11 +25,10 @@ public record UserResponse(
                 .goal(user.getGoal())
                 .ageRange(user.getAgeRange())
                 .skinType(user.getSkinType())
+                .sleepHours(user.getSleepHours())
                 .outingFrequency(user.getOutingFrequency())
                 .checkCycle(user.getCheckCycle())
                 .careMotivation(user.getCareMotivation())
-                .lastDiagnosisAt(user.getLastDiagnosisAt())
-                .hasDiagnosis(user.hasDiagnosis())
                 .build();
     }
 }

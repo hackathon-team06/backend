@@ -48,6 +48,7 @@ public class DiagnosisService {
         user.applyDiagnosisResult(
                 request.ageRange(),
                 request.skinType(),
+                request.sleepHours(),
                 request.outingFrequency(),
                 request.checkCycle(),
                 request.careMotivation()

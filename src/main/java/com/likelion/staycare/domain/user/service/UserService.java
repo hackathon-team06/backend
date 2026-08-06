@@ -30,7 +30,7 @@ public class UserService {
         }
 
         String accessToken = jwtProvider.createAccessToken(user.getId());
-        return LoginResponse.of(accessToken, user.getId(), user.getNickname(), user.getGoal());
+        return LoginResponse.of(accessToken, user.getId());
     }
 
     @Transactional

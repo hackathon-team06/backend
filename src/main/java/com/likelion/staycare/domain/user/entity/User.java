@@ -34,16 +34,15 @@ public class User {
     @Column(length = 100)
     private String goal;
 
-    private Integer goalDays;
-
-    private LocalDateTime goalStartAt;
-
     // === 자가진단으로만 갱신되는 필드 ===
     @Enumerated(EnumType.STRING)
     private AgeRange ageRange;
 
     @Enumerated(EnumType.STRING)
     private SkinType skinType;
+
+    @Enumerated(EnumType.STRING)
+    private SleepHours sleepHours;
 
     @Enumerated(EnumType.STRING)
     private OutingFrequency outingFrequency;
@@ -53,8 +52,6 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     private CareMotivation careMotivation;
-
-    private LocalDateTime lastDiagnosisAt;
 
 
     @Builder
@@ -69,26 +66,26 @@ public class User {
         this.nickname = nickname;
     }
 
-    public void updateGoal(String goal, Integer goalDays) {
+    public void updateGoal(String goal) {
         this.goal = goal;
-        this.goalDays = goalDays;
-        this.goalStartAt = LocalDateTime.now();
+
     }
 
     // === 자가진단 결과 반영 메서드 ===
     public void applyDiagnosisResult(
             AgeRange ageRange,
             SkinType skinType,
+            SleepHours sleepHours,
             OutingFrequency outingFrequency,
             CheckCycle checkCycle,
             CareMotivation careMotivation
     ) {
         this.ageRange = ageRange;
         this.skinType = skinType;
+        this.sleepHours = sleepHours;
         this.outingFrequency = outingFrequency;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
-        this.lastDiagnosisAt = LocalDateTime.now();
     }
 
     public boolean hasDiagnosis() {

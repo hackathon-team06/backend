@@ -6,17 +6,13 @@ import lombok.Builder;
 public record LoginResponse(
         String accessToken,
         String tokenType,
-        Long userId,
-        String nickname,
-        String goal
+        Long userId
 ) {
-    public static LoginResponse of(String accessToken, Long userId, String nickname, String goal) {
+    public static LoginResponse of(String accessToken, Long userId) {
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .tokenType("Bearer")
                 .userId(userId)
-                .nickname(nickname)
-                .goal(goal)
                 .build();
     }
 }
