@@ -1,11 +1,14 @@
 package com.likelion.staycare.domain.user.entity;
 
+import com.likelion.staycare.domain.diagnosis.entity.*;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -24,25 +27,71 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    // === 마이페이지에서 편집 가능한 필드 ===
     @Column(length = 20)
     private String nickname;
 
     @Column(length = 100)
     private String goal;
 
+    private Integer goalDays;
+
+    private LocalDateTime goalStartAt;
+
+    // === 자가진단으로만 갱신되는 필드 ===
+    @Enumerated(EnumType.STRING)
+    private AgeRange ageRange;
+
+    @Enumerated(EnumType.STRING)
+    private SkinType skinType;
+
+    @Enumerated(EnumType.STRING)
+    private OutingFrequency outingFrequency;
+
+    @Enumerated(EnumType.STRING)
+    private CheckCycle checkCycle;
+
+    @Enumerated(EnumType.STRING)
+    private CareMotivation careMotivation;
+
+    private LocalDateTime lastDiagnosisAt;
+
+
     @Builder
-    public User(String loginId, String password, String nickname, String goal) {
+    public User(String loginId, String password, String nickname) {
         this.loginId = loginId;
         this.password = password;
         this.nickname = nickname;
-        this.goal = goal;
     }
 
+    // === 마이페이지 수정 메서드 ===
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
 
-    public void updateGoal(String goal) {
+    public void updateGoal(String goal, Integer goalDays) {
         this.goal = goal;
+        this.goalDays = goalDays;
+        this.goalStartAt = LocalDateTime.now();
+    }
+
+    // === 자가진단 결과 반영 메서드 ===
+    public void applyDiagnosisResult(
+            AgeRange ageRange,
+            SkinType skinType,
+            OutingFrequency outingFrequency,
+            CheckCycle checkCycle,
+            CareMotivation careMotivation
+    ) {
+        this.ageRange = ageRange;
+        this.skinType = skinType;
+        this.outingFrequency = outingFrequency;
+        this.checkCycle = checkCycle;
+        this.careMotivation = careMotivation;
+        this.lastDiagnosisAt = LocalDateTime.now();
+    }
+
+    public boolean hasDiagnosis() {
+        return this.skinType != null;
     }
 }

@@ -46,8 +46,6 @@ public class UserService {
     public UserResponse updateGoal(Long userId, GoalRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
-
-        user.updateGoal(request.goal());
         return UserResponse.from(user);
     }
 
