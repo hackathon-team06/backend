@@ -22,7 +22,7 @@ public class DiagnosisController {
 
     private final DiagnosisService diagnosisService;
 
-    @Operation(summary = "진단 수행(JWT 필요)", description = "사용자의 진단 결과 저장")
+    @Operation(summary = "진단 수행(토큰 필요)", description = "사용자의 진단 결과 저장")
     @PostMapping
     public ResponseEntity<DiagnosisResponse> diagnose(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -32,7 +32,7 @@ public class DiagnosisController {
                 diagnosisService.diagnose(userDetails.getUserId(), request));
     }
 
-    @Operation(summary = "진단 선택지 조회(JWT 필요X)", description = "진단 화면에서 사용할 선택지 목록 조회")
+    @Operation(summary = "진단 선택지 조회(토큰 필요X)", description = "진단 화면에서 사용할 선택지 목록 조회")
     @GetMapping("/options")
     public ResponseEntity<DiagnosisOptionsResponse> getOptions() {
         return ResponseEntity.ok(DiagnosisOptionsResponse.getAll());

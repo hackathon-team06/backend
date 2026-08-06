@@ -25,7 +25,7 @@ public class UserController {
         return ResponseEntity.ok(userService.login(request));
     }
 
-    @Operation(summary = "닉네임 수정(JWT 필요)", description = "현재 로그인한 사용자의 닉네임 수정")
+    @Operation(summary = "닉네임 수정(토큰 필요)", description = "현재 로그인한 사용자의 닉네임 수정")
     @PatchMapping("/nickname")
     public ResponseEntity<UserResponse> updateNickname(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -34,7 +34,7 @@ public class UserController {
         return ResponseEntity.ok(userService.updateNickname(userDetails.getUserId(), request));
     }
 
-    @Operation(summary = "목표 수정(JWT 필요)", description = "현재 로그인한 사용자의 목표 수정")
+    @Operation(summary = "목표 수정(토큰 필요)", description = "현재 로그인한 사용자의 목표 수정")
     @PatchMapping("/goal")
     public ResponseEntity<UserResponse> updateGoal(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -43,7 +43,7 @@ public class UserController {
         return  ResponseEntity.ok(userService.updateGoal(userDetails.getUserId(), request));
     }
 
-    @Operation(summary = "내 정보 조회(JWT 필요)", description = "현재 로그인한 사용자의 마이페이지 정보 조회")
+    @Operation(summary = "내 정보 조회(토큰 필요)", description = "현재 로그인한 사용자의 마이페이지 정보 조회")
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyInfo(
             @AuthenticationPrincipal CustomUserDetails userDetails
