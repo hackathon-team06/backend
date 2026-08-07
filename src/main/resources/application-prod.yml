@@ -29,4 +29,5 @@ jwt:
 cors:
   allowed-origins:
     -
-
+firebase:
+  service-account-b64: ${FIREBASE_SERVICE_ACCOUNT_B64:}
