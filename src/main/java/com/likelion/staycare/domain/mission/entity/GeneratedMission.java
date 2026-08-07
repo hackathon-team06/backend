@@ -1,6 +1,7 @@
 package com.likelion.staycare.domain.mission.entity;
 
 import com.likelion.staycare.domain.mission.entity.enums.MissionStatus;
+import com.likelion.staycare.domain.mission.entity.enums.MissionTime;
 import com.likelion.staycare.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,8 +31,8 @@ import java.time.LocalDateTime;
         name = "generated_missions",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_generated_mission_user_date",
-                        columnNames = {"user_id", "mission_date"}
+                        name = "uk_generated_mission_user_date_time",
+                        columnNames = {"user_id", "mission_date", "mission_time"}
                 ),
                 @UniqueConstraint(
                         name = "uk_generated_mission_skin_check",
@@ -52,7 +53,7 @@ public class GeneratedMission {
     private User user;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "skin_check_id", nullable = false, unique = true)
+    @JoinColumn(name = "skin_check_id", unique = true)
     private DailySkinCheck dailySkinCheck;
 
     @Column(nullable = false, length = 100)
@@ -69,6 +70,10 @@ public class GeneratedMission {
 
     @Column(name = "mission_date", nullable = false)
     private LocalDate missionDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mission_time", nullable = false, length = 20)
+    private MissionTime missionTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -89,7 +94,8 @@ public class GeneratedMission {
             String description,
             String tip,
             String promptVersion,
-            LocalDate missionDate
+            LocalDate missionDate,
+            MissionTime missionTime
     ) {
         this.user = user;
         this.dailySkinCheck = dailySkinCheck;
@@ -98,6 +104,7 @@ public class GeneratedMission {
         this.tip = tip;
         this.promptVersion = promptVersion;
         this.missionDate = missionDate;
+        this.missionTime = missionTime;
         this.status = MissionStatus.PENDING;
     }
 

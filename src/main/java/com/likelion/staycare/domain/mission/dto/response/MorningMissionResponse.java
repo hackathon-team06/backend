@@ -1,4 +1,14 @@
 package com.likelion.staycare.domain.mission.dto.response;
 
-public class MorningMissionResponse {
+import lombok.Builder;
+
+import java.util.List;
+
+@Builder
+public record MorningMissionResponse(
+        String title,
+        String description,
+        List<String> steps,
+        String tip
+) {
 }
