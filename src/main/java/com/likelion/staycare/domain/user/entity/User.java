@@ -6,7 +6,11 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -51,12 +55,23 @@ public class User {
     @Enumerated(EnumType.STRING)
     private CareMotivation careMotivation;
 
+    @Column(name = "notification_enabled", nullable = false)
+    private Boolean notificationEnabled = true;
+
+    @Column(name = "last_notified_date")
+    private LocalDate lastNotifiedDate;
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
 
     @Builder
     public User(String loginId, String password, String nickname) {
         this.loginId = loginId;
         this.password = password;
         this.nickname = nickname;
+        this.notificationEnabled = true;
     }
 
     // === 마이페이지 수정 메서드 ===
@@ -67,6 +82,10 @@ public class User {
     public void updateGoal(String goal) {
         this.goal = goal;
 
+    }
+
+    public void updateNotificationSetting(Boolean notificationEnabled) {
+        this.notificationEnabled = notificationEnabled;
     }
 
     // === 자가진단 결과 반영 메서드 ===
@@ -84,6 +103,10 @@ public class User {
         this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
+    }
+
+    public void markNotified(LocalDate date) {
+        this.lastNotifiedDate = date;
     }
 
     public boolean hasDiagnosis() {

@@ -50,4 +50,15 @@ public class UserController {
     ) {
         return ResponseEntity.ok(userService.getMyInfo(userDetails.getUserId()));
     }
+
+    @PatchMapping("/notification-setting")
+    public ResponseEntity<UserResponse> updateNotificationSetting(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody @Valid NotificationSettingRequest request
+    ) {
+        return ResponseEntity.ok(
+                userService.updateNotificationSetting(userDetails.getUserId(), request)
+        );
+    }
+
 }

@@ -77,6 +77,7 @@ jobs:
               -e DB_USERNAME2="${{ secrets.DB_USERNAME2 }}" \
               -e DB_PASSWORD2="${{ secrets.DB_PASSWORD2 }}" \
               -e JWT_SECRET1="${{ secrets.JWT_SECRET1 }}" \
+              -e FIREBASE_SERVICE_ACCOUNT_B64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}" \
               staycare-api:latest
 
             sleep 20
