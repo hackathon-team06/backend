@@ -29,4 +29,15 @@ jwt:
 cors:
   allowed-origins:
     -
+firebase:
+  service-account-b64: ${FIREBASE_SERVICE_ACCOUNT_B64:}
 
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${AWS_S3_BUCKET}

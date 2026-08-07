@@ -14,6 +14,11 @@ spring:
     init:
       mode: never
 
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
+
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-5.5
@@ -27,7 +32,12 @@ cors:
     - http://localhost:8080
     - http://localhost:5173
 
-logging:
-  level:
-    org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${AWS_S3_BUCKET}

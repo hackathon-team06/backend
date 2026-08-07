@@ -61,9 +61,11 @@ public class User {
     @Column(name = "last_notified_date")
     private LocalDate lastNotifiedDate;
 
-    @CreatedDate
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
+    @Column(name = "profile_image_key")
+    private String profileImageKey;
 
 
     @Builder
@@ -87,6 +89,17 @@ public class User {
     public void updateNotificationSetting(Boolean notificationEnabled) {
         this.notificationEnabled = notificationEnabled;
     }
+
+    public void updateProfileImage(String profileImageUrl, String profileImageKey) {
+        this.profileImageUrl = profileImageUrl;
+        this.profileImageKey = profileImageKey;
+    }
+
+    public void removeProfileImage() {
+        this.profileImageUrl = null;
+        this.profileImageKey = null;
+    }
+
 
     // === 자가진단 결과 반영 메서드 ===
     public void applyDiagnosisResult(
