@@ -16,7 +16,7 @@ public record DiagnosisOptionsResponse(
         List<String> ageRanges,
         List<String> sleepHours,
         List<String> skinTypes,
-        List<String> outingFrequencies,
+        List<String> returnHomeTime,
         List<String> checkCycles,
         List<String> careMotivations
 ) {
@@ -31,7 +31,7 @@ public record DiagnosisOptionsResponse(
                 .skinTypes(Arrays.stream(SkinType.values())
                         .map(SkinType::getLabel)
                         .toList())
-                .outingFrequencies(Arrays.stream(ReturnHomeTime.values())
+                .returnHomeTime(Arrays.stream(ReturnHomeTime.values())
                         .map(ReturnHomeTime::getLabel)
                         .toList())
                 .checkCycles(Arrays.stream(CheckCycle.values())
