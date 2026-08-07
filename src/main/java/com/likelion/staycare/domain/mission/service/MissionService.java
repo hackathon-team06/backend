@@ -1,6 +1,7 @@
 package com.likelion.staycare.domain.mission.service;
 
 import com.likelion.staycare.domain.diagnosis.entity.AgeRange;
+import com.likelion.staycare.domain.diagnosis.entity.CheckCycle;
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
 import com.likelion.staycare.domain.mission.dto.request.MorningMissionRequest;
@@ -81,6 +82,8 @@ public class MissionService {
         MorningMissionRequest request = new MorningMissionRequest(
                 getAge(user.getAgeRange()),
                 getSkinType(user.getSkinType()),
+                getGoal(user.getGoal()),
+                getCheckCycle(user.getCheckCycle()),
                 previousEveningMission == null ? DEFAULT_VALUE : previousEveningMission.getTitle(),
                 buildPreviousMissionResult(previousChecks),
                 previousSkinCheck == null ? DEFAULT_VALUE : previousSkinCheck.getSkinCondition().name()
@@ -134,6 +137,8 @@ public class MissionService {
         EveningMissionRequest request = new EveningMissionRequest(
                 getAge(user.getAgeRange()),
                 getSkinType(user.getSkinType()),
+                getGoal(user.getGoal()),
+                getCheckCycle(user.getCheckCycle()),
                 dailySkinCheck.getSkinCondition().name()
         );
 
@@ -320,6 +325,14 @@ public class MissionService {
 
     private String getSkinType(SkinType skinType) {
         return skinType == null ? DEFAULT_VALUE : skinType.getLabel();
+    }
+
+    private String getGoal(String goal) {
+        return goal == null || goal.isBlank() ? DEFAULT_VALUE : goal;
+    }
+
+    private String getCheckCycle(CheckCycle checkCycle) {
+        return checkCycle == null ? DEFAULT_VALUE : checkCycle.getLabel();
     }
 
     private String buildScheduleStep(Schedule schedule) {

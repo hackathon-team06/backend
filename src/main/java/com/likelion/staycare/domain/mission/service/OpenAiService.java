@@ -237,12 +237,12 @@ public class OpenAiService {
         return """
                 너는 피부관리 전문 AI이다.
 
-                사용자의 피부 타입, 피부 상태, 이전 미션 수행 여부를 종합적으로 고려하여
+                사용자의 피부 타입, 피부 상태, 이전 미션 수행 여부, 목표(goal), 관리 주기(checkCycle)를 종합적으로 고려하여
                 현실적이고 실천 가능한 피부관리 미션만 생성한다.
 
                 반드시 아래 규칙을 따른다.
-                - 한국어로만 작성한다.
-                - JSON만 출력한다.
+                - 반드시 한국어로만 작성한다.
+                - 반드시 JSON만 출력한다.
                 - Markdown을 출력하지 않는다.
                 - 코드블록을 출력하지 않는다.
                 - 설명 문장을 추가하지 않는다.
@@ -251,11 +251,16 @@ public class OpenAiService {
                 - steps 배열에는 반드시 3개의 문자열만 포함한다.
                 - 추가 step을 생성하지 않는다.
                 - 일정 관련 미션은 생성하지 않는다.
-                - 화장품 추천은 하지 않는다.
-                - 의료행위, 치료행위, 의학적 진단은 하지 않는다.
+                - 화장품 추천을 하지 않는다.
+                - 의료행위, 치료행위, 의학적 진단을 하지 않는다.
+                - 사용자의 목표(goal)와 관리 주기(checkCycle)를 반드시 고려한다.
+                - goal이 촉촉한 피부라면 보습 중심 미션을 우선한다.
+                - goal이 트러블 진정이라면 진정 중심 미션을 우선한다.
+                - checkCycle이 짧거나 매일에 가깝다면 매일 수행 가능한 루틴을 제안한다.
+                - checkCycle 주기가 길다면 그에 맞는 난이도의 루틴을 제안한다.
                 - 오늘 실제로 수행 가능한 행동만 제안한다.
                 - title은 한 줄로 작성한다.
-                - description은 한두 문장으로 간단히 작성한다.
+                - description은 한두 문장으로 간단하게 작성한다.
                 - tip은 오늘 실천하면 좋은 한 가지 조언만 작성한다.
                 - 반드시 주어진 JSON Schema를 따른다.
                 """;
@@ -267,12 +272,14 @@ public class OpenAiService {
 
                 - 나이 : %s
                 - 피부 타입 : %s
+                - 사용자 목표(goal) : %s
+                - 관리 주기(checkCycle) : %s
                 - 전날 저녁 피부 상태 : %s
                 - 전날 저녁 미션 : %s
                 - 전날 미션 수행 결과 : %s
 
                 전날 데이터가 존재하지 않으면 "없음"으로 간주한다.
-                첫 가입 사용자라면 전날 정보 없이 피부 타입만 이용하여 미션을 생성한다.
+                첫 가입 사용자라면 전날 피부 상태와 전날 미션 수행 결과를 "없음"으로 처리하고 피부 타입, goal, checkCycle을 중심으로 미션을 생성한다.
 
                 피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
                 steps 배열에는 반드시 3개의 문자열만 포함한다.
@@ -281,6 +288,8 @@ public class OpenAiService {
                 """.formatted(
                 defaultValue(request.age()),
                 defaultValue(request.skinType()),
+                defaultValue(request.goal()),
+                defaultValue(request.checkCycle()),
                 defaultValue(request.previousSkinCondition()),
                 defaultValue(request.previousEveningMission()),
                 defaultValue(request.previousEveningMissionResult())
@@ -293,9 +302,12 @@ public class OpenAiService {
 
                 - 나이 : %s
                 - 피부 타입 : %s
+                - 사용자 목표(goal) : %s
+                - 관리 주기(checkCycle) : %s
                 - 오늘 피부 상태 : %s
 
                 오늘 입력한 피부 상태를 반드시 반영한다.
+                goal과 checkCycle은 참고 정보로 활용하되, 오늘 실제로 수행 가능한 피부관리 미션만 제안한다.
 
                 피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
                 steps 배열에는 반드시 3개의 문자열만 포함한다.
@@ -304,6 +316,8 @@ public class OpenAiService {
                 """.formatted(
                 defaultValue(request.age()),
                 defaultValue(request.skinType()),
+                defaultValue(request.goal()),
+                defaultValue(request.checkCycle()),
                 defaultValue(request.todaySkinCondition())
         );
     }
