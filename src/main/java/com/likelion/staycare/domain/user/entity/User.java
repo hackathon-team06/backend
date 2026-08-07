@@ -8,8 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Getter
 @Table(name = "users")
@@ -45,7 +43,7 @@ public class User {
     private SleepHours sleepHours;
 
     @Enumerated(EnumType.STRING)
-    private OutingFrequency outingFrequency;
+    private ReturnHomeTime returnHomeTime;
 
     @Enumerated(EnumType.STRING)
     private CheckCycle checkCycle;
@@ -76,14 +74,14 @@ public class User {
             AgeRange ageRange,
             SkinType skinType,
             SleepHours sleepHours,
-            OutingFrequency outingFrequency,
+            ReturnHomeTime returnHomeTime,
             CheckCycle checkCycle,
             CareMotivation careMotivation
     ) {
         this.ageRange = ageRange;
         this.skinType = skinType;
         this.sleepHours = sleepHours;
-        this.outingFrequency = outingFrequency;
+        this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
     }

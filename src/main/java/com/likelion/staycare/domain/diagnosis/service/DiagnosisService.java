@@ -38,7 +38,7 @@ public class DiagnosisService {
                 .ageRange(request.ageRange())
                 .sleepHours(request.sleepHours())
                 .skinType(request.skinType())
-                .outingFrequency(request.outingFrequency())
+                .returnHomeTime(request.returnHomeTime())
                 .checkCycle(request.checkCycle())
                 .careMotivation(request.careMotivation())
                 .build();
@@ -49,7 +49,7 @@ public class DiagnosisService {
                 request.ageRange(),
                 request.skinType(),
                 request.sleepHours(),
-                request.outingFrequency(),
+                request.returnHomeTime(),
                 request.checkCycle(),
                 request.careMotivation()
         );

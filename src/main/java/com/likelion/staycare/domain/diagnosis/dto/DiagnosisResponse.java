@@ -10,7 +10,7 @@ public record DiagnosisResponse(
         String ageRangeLabel,
         String sleepHoursLabel,
         String skinTypeLabel,
-        String outingFrequencyLabel,
+        String returmHomeTime,
         Integer checkCycleDays,
         String careMotivationLabel
 ) {
@@ -20,7 +20,7 @@ public record DiagnosisResponse(
                 .ageRangeLabel(d.getAgeRange().getLabel())
                 .sleepHoursLabel(d.getSleepHours().getLabel())
                 .skinTypeLabel(d.getSkinType().getLabel())
-                .outingFrequencyLabel(d.getOutingFrequency().getLabel())
+                .returmHomeTime(d.getReturnHomeTime().getLabel())
                 .checkCycleDays(d.getCheckCycle().getDays())
                 .careMotivationLabel(d.getCareMotivation().getLabel())
                 .build();

@@ -40,7 +40,7 @@ public class Diagnosis {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OutingFrequency outingFrequency;
+    private ReturnHomeTime returnHomeTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -58,14 +58,14 @@ public class Diagnosis {
 
     @Builder
     public Diagnosis(User user, AgeRange ageRange, SleepHours sleepHours,
-                     SkinType skinType, OutingFrequency outingFrequency,
+                     SkinType skinType, ReturnHomeTime returnHomeTime,
                      CheckCycle checkCycle, CareMotivation careMotivation,
                      String recommendation) {
         this.user = user;
         this.ageRange = ageRange;
         this.sleepHours = sleepHours;
         this.skinType = skinType;
-        this.outingFrequency = outingFrequency;
+        this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
         this.recommendation = recommendation;

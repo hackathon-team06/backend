@@ -4,8 +4,6 @@ import com.likelion.staycare.domain.diagnosis.entity.*;
 import com.likelion.staycare.domain.user.entity.User;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
-
 @Builder
 public record UserResponse(
         Long userId,
@@ -14,7 +12,7 @@ public record UserResponse(
         AgeRange ageRange,
         SkinType skinType,
         SleepHours sleepHours,
-        OutingFrequency outingFrequency,
+        ReturnHomeTime returnHomeTime,
         CheckCycle checkCycle,
         CareMotivation careMotivation
 ) {
@@ -26,7 +24,7 @@ public record UserResponse(
                 .ageRange(user.getAgeRange())
                 .skinType(user.getSkinType())
                 .sleepHours(user.getSleepHours())
-                .outingFrequency(user.getOutingFrequency())
+                .returnHomeTime(user.getReturnHomeTime())
                 .checkCycle(user.getCheckCycle())
                 .careMotivation(user.getCareMotivation())
                 .build();
