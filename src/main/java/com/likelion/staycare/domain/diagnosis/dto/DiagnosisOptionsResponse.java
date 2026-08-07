@@ -3,7 +3,7 @@ package com.likelion.staycare.domain.diagnosis.dto;
 import com.likelion.staycare.domain.diagnosis.entity.AgeRange;
 import com.likelion.staycare.domain.diagnosis.entity.CareMotivation;
 import com.likelion.staycare.domain.diagnosis.entity.CheckCycle;
-import com.likelion.staycare.domain.diagnosis.entity.OutingFrequency;
+import com.likelion.staycare.domain.diagnosis.entity.ReturnHomeTime;
 import com.likelion.staycare.domain.diagnosis.entity.SleepHours;
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import lombok.Builder;
@@ -31,8 +31,8 @@ public record DiagnosisOptionsResponse(
                 .skinTypes(Arrays.stream(SkinType.values())
                         .map(SkinType::getLabel)
                         .toList())
-                .outingFrequencies(Arrays.stream(OutingFrequency.values())
-                        .map(OutingFrequency::getLabel)
+                .outingFrequencies(Arrays.stream(ReturnHomeTime.values())
+                        .map(ReturnHomeTime::getLabel)
                         .toList())
                 .checkCycles(Arrays.stream(CheckCycle.values())
                         .map(CheckCycle::getLabel)
