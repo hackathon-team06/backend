@@ -50,6 +50,17 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+    @Transactional
+    public UserResponse updateNotificationSetting(Long userId, NotificationSettingRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updateNotificationSetting(request.notificationEnabled());
+
+        return UserResponse.from(user);
+    }
+
+
     public UserResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));

@@ -14,7 +14,9 @@ public record UserResponse(
         SleepHours sleepHours,
         ReturnHomeTime returnHomeTime,
         CheckCycle checkCycle,
-        CareMotivation careMotivation
+        CareMotivation careMotivation,
+        Boolean notificationEnabled
+
 ) {
     public static UserResponse from(User user) {
         return UserResponse.builder()
@@ -27,6 +29,7 @@ public record UserResponse(
                 .returnHomeTime(user.getReturnHomeTime())
                 .checkCycle(user.getCheckCycle())
                 .careMotivation(user.getCareMotivation())
+                .notificationEnabled(user.getNotificationEnabled())
                 .build();
     }
 }
