@@ -186,7 +186,9 @@ public class OpenAiService {
         String rawJson = extractOutputText(response);
 
         try {
-            return objectMapper.readValue(rawJson, MissionPayload.class);
+            MissionPayload payload = objectMapper.readValue(rawJson, MissionPayload.class);
+            validateMissionPayload(payload);
+            return payload;
         } catch (JsonProcessingException e) {
             log.error("AI mission JSON parse failed. rawJson={}", rawJson, e);
             throw new OpenAiException(
@@ -217,6 +219,18 @@ public class OpenAiService {
         }
 
         return outputText;
+    }
+
+    private void validateMissionPayload(MissionPayload payload) {
+        if (payload == null
+                || isBlank(payload.title())
+                || isBlank(payload.description())
+                || isBlank(payload.tip())
+                || payload.steps() == null
+                || payload.steps().size() != 3
+                || payload.steps().stream().anyMatch(this::isBlank)) {
+            throw new OpenAiException(OpenAiErrorCode.OPENAI_INVALID_RESPONSE);
+        }
     }
 
     private String buildSystemPrompt() {
@@ -315,6 +329,10 @@ public class OpenAiService {
 
     private String defaultValue(String value) {
         return value == null || value.isBlank() ? "없음" : value;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private record MissionPayload(
