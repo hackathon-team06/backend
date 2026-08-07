@@ -9,6 +9,7 @@ public record UserResponse(
         Long userId,
         String nickname,
         String goal,
+        String profileImageUrl,
         AgeRange ageRange,
         SkinType skinType,
         SleepHours sleepHours,
@@ -23,6 +24,7 @@ public record UserResponse(
                 .userId(user.getId())
                 .nickname(user.getNickname())
                 .goal(user.getGoal())
+                .profileImageUrl(user.getProfileImageUrl())
                 .ageRange(user.getAgeRange())
                 .skinType(user.getSkinType())
                 .sleepHours(user.getSleepHours())

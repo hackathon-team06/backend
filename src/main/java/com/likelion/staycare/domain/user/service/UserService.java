@@ -5,11 +5,13 @@ import com.likelion.staycare.domain.user.entity.User;
 import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import com.likelion.staycare.global.exception.CustomException;
+import com.likelion.staycare.global.s3.S3Uploader;
 import com.likelion.staycare.global.security.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +21,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
-
+    private final S3Uploader s3Uploader;
 
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByLoginId(request.loginId())
@@ -65,5 +67,53 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
         return UserResponse.from(user);
+    }
+
+    public UserResponse updateProfileImage(Long userId, MultipartFile image) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        validateImage(image);
+
+        try {
+            if (user.getProfileImageKey() != null) {
+                s3Uploader.deleteFile(user.getProfileImageKey());
+            }
+
+            S3Uploader.UploadResult uploadResult = s3Uploader.uploadProfileImage(image, userId);
+            user.updateProfileImage(uploadResult.url(), uploadResult.key());
+
+            return UserResponse.from(user);
+        } catch (Exception e) {
+            throw new RuntimeException("프로필 이미지 업로드 실패", e);
+        }
+    }
+
+    public UserResponse deleteProfileImage(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        if (user.getProfileImageKey() != null) {
+            s3Uploader.deleteFile(user.getProfileImageKey());
+        }
+
+        user.removeProfileImage();
+        return UserResponse.from(user);
+    }
+
+    private void validateImage(MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw new IllegalArgumentException("이미지 파일은 필수입니다.");
+        }
+
+        String contentType = image.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다.");
+        }
+
+        long maxSize = 5 * 1024 * 1024;
+        if (image.getSize() > maxSize) {
+            throw new IllegalArgumentException("이미지는 5MB 이하만 업로드할 수 있습니다.");
+        }
     }
 }
