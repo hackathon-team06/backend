@@ -8,6 +8,7 @@ import java.util.List;
 public record MorningMissionResponse(
         String title,
         String description,
+        List<Long> stepIds,
         List<String> steps,
         String tip
 ) {

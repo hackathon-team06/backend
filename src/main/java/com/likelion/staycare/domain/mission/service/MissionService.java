@@ -6,12 +6,15 @@ import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
 import com.likelion.staycare.domain.mission.dto.request.MorningMissionRequest;
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionStepDetailResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.TodayMissionResponse;
 import com.likelion.staycare.domain.mission.entity.DailySkinCheck;
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
 import com.likelion.staycare.domain.mission.entity.UserMissionStepCheck;
+import com.likelion.staycare.domain.mission.entity.enums.MissionStatus;
 import com.likelion.staycare.domain.mission.entity.enums.MissionTime;
 import com.likelion.staycare.domain.mission.entity.enums.SkinCondition;
 import com.likelion.staycare.domain.mission.exception.MissionErrorCode;
@@ -22,6 +25,7 @@ import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepos
 import com.likelion.staycare.domain.schedule.entity.Schedule;
 import com.likelion.staycare.domain.schedule.entity.enums.Companion;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
+import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
 import com.likelion.staycare.domain.user.exception.UserErrorCode;
@@ -35,6 +39,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -84,6 +91,7 @@ public class MissionService {
                 getSkinType(user.getSkinType()),
                 getGoal(user.getGoal()),
                 getCheckCycle(user.getCheckCycle()),
+                getTodayScheduleContext(userId, today),
                 previousEveningMission == null ? DEFAULT_VALUE : previousEveningMission.getTitle(),
                 buildPreviousMissionResult(previousChecks),
                 previousSkinCheck == null ? DEFAULT_VALUE : previousSkinCheck.getSkinCondition().name()
@@ -100,11 +108,12 @@ public class MissionService {
                 today,
                 MissionTime.MORNING
         );
-        saveGeneratedMissionSteps(savedMission, steps);
+        List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
 
         return MorningMissionResponse.builder()
                 .title(response.title())
                 .description(response.description())
+                .stepIds(extractStepIds(savedSteps))
                 .steps(steps)
                 .tip(response.tip())
                 .build();
@@ -139,6 +148,7 @@ public class MissionService {
                 getSkinType(user.getSkinType()),
                 getGoal(user.getGoal()),
                 getCheckCycle(user.getCheckCycle()),
+                getTodayScheduleContext(userId, today),
                 dailySkinCheck.getSkinCondition().name()
         );
 
@@ -153,11 +163,12 @@ public class MissionService {
                 today,
                 MissionTime.EVENING
         );
-        saveGeneratedMissionSteps(savedMission, steps);
+        List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
 
         return EveningMissionResponse.builder()
                 .title(response.title())
                 .description(response.description())
+                .stepIds(extractStepIds(savedSteps))
                 .steps(steps)
                 .tip(response.tip())
                 .build();
@@ -180,6 +191,23 @@ public class MissionService {
                 .build();
     }
 
+    public List<MissionStepDetailResponse> getMissionSteps(Long userId, Long missionId) {
+        User user = getUser(userId);
+        GeneratedMission mission = getMission(missionId);
+
+        validateMissionOwner(user, mission);
+        return buildStepDetails(mission);
+    }
+
+    public List<MissionByDateResponse> getMissionsByDate(Long userId, LocalDate date) {
+        User user = getUser(userId);
+
+        return generatedMissionRepository.findAllByUserAndMissionDateOrderByMissionTimeAsc(user, date)
+                .stream()
+                .map(this::toMissionByDateResponse)
+                .toList();
+    }
+
     @Transactional
     public void completeStep(Long userId, Long stepId) {
         User user = getUser(userId);
@@ -187,9 +215,7 @@ public class MissionService {
                 .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
 
         GeneratedMission mission = generatedMissionStep.getGeneratedMission();
-        if (!mission.getUser().getId().equals(user.getId())) {
-            throw new CustomException(MissionErrorCode.FORBIDDEN_MISSION);
-        }
+        validateMissionOwner(user, mission);
 
         UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
                 .orElseGet(() -> UserMissionStepCheck.builder()
@@ -207,6 +233,17 @@ public class MissionService {
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    private GeneratedMission getMission(Long missionId) {
+        return generatedMissionRepository.findById(missionId)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_NOT_FOUND));
+    }
+
+    private void validateMissionOwner(User user, GeneratedMission mission) {
+        if (!mission.getUser().getId().equals(user.getId())) {
+            throw new CustomException(MissionErrorCode.FORBIDDEN_MISSION);
+        }
     }
 
     private GeneratedMission saveGeneratedMission(
@@ -232,7 +269,7 @@ public class MissionService {
         );
     }
 
-    private void saveGeneratedMissionSteps(GeneratedMission mission, List<String> steps) {
+    private List<GeneratedMissionStep> saveGeneratedMissionSteps(GeneratedMission mission, List<String> steps) {
         List<GeneratedMissionStep> generatedMissionSteps = new ArrayList<>();
 
         for (int index = 0; index < steps.size(); index++) {
@@ -245,12 +282,12 @@ public class MissionService {
             );
         }
 
-        generatedMissionStepRepository.saveAll(generatedMissionSteps);
+        return generatedMissionStepRepository.saveAll(generatedMissionSteps);
     }
 
     private List<String> buildMissionStepsWithSchedule(Long userId, LocalDate missionDate, List<String> aiSteps) {
         List<String> steps = new ArrayList<>(aiSteps);
-        scheduleRepository.findByUserIdAndScheduleDate(userId, missionDate)
+        scheduleRepository.findByUserIdAndScheduleDateAndStatus(userId, missionDate, ScheduleStatus.ACTIVE)
                 .map(this::buildScheduleStep)
                 .ifPresent(steps::add);
         return steps;
@@ -280,31 +317,57 @@ public class MissionService {
     }
 
     private MorningMissionResponse toMorningMissionResponse(GeneratedMission mission) {
-        List<String> steps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
-                .stream()
-                .map(GeneratedMissionStep::getContent)
-                .toList();
+        List<GeneratedMissionStep> missionSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission);
 
         return MorningMissionResponse.builder()
                 .title(mission.getTitle())
                 .description(mission.getDescription())
-                .steps(steps)
+                .stepIds(extractStepIds(missionSteps))
+                .steps(missionSteps.stream().map(GeneratedMissionStep::getContent).toList())
                 .tip(mission.getTip())
                 .build();
     }
 
     private EveningMissionResponse toEveningMissionResponse(GeneratedMission mission) {
-        List<String> steps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
-                .stream()
-                .map(GeneratedMissionStep::getContent)
-                .toList();
+        List<GeneratedMissionStep> missionSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission);
 
         return EveningMissionResponse.builder()
                 .title(mission.getTitle())
                 .description(mission.getDescription())
-                .steps(steps)
+                .stepIds(extractStepIds(missionSteps))
+                .steps(missionSteps.stream().map(GeneratedMissionStep::getContent).toList())
                 .tip(mission.getTip())
                 .build();
+    }
+
+    private MissionByDateResponse toMissionByDateResponse(GeneratedMission mission) {
+        return MissionByDateResponse.builder()
+                .missionId(mission.getId())
+                .missionTime(mission.getMissionTime())
+                .title(mission.getTitle())
+                .completed(mission.getStatus() == MissionStatus.COMPLETED)
+                .steps(buildStepDetails(mission))
+                .build();
+    }
+
+    private List<MissionStepDetailResponse> buildStepDetails(GeneratedMission mission) {
+        List<GeneratedMissionStep> missionSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission);
+        Map<Long, UserMissionStepCheck> checksByStepId = userMissionStepCheckRepository
+                .findByGeneratedMissionStepGeneratedMission(mission)
+                .stream()
+                .collect(Collectors.toMap(
+                        check -> check.getGeneratedMissionStep().getId(),
+                        Function.identity()
+                ));
+
+        return missionSteps.stream()
+                .map(step -> MissionStepDetailResponse.builder()
+                        .stepId(step.getId())
+                        .stepOrder(step.getStepOrder())
+                        .content(step.getContent())
+                        .completed(checksByStepId.get(step.getId()) != null && checksByStepId.get(step.getId()).isChecked())
+                        .build())
+                .toList();
     }
 
     private String buildPreviousMissionResult(List<UserMissionStepCheck> checks) {
@@ -335,18 +398,47 @@ public class MissionService {
         return checkCycle == null ? DEFAULT_VALUE : checkCycle.getLabel();
     }
 
-    private String buildScheduleStep(Schedule schedule) {
-        String companion = getCompanionText(schedule.getCompanion());
+    private List<Long> extractStepIds(List<GeneratedMissionStep> steps) {
+        return steps.stream()
+                .map(GeneratedMissionStep::getId)
+                .toList();
+    }
 
-        if (companion.endsWith("인")) {
-            return companion + "과 " + getCategoryText(schedule.getCategory());
+    private String getTodayScheduleContext(Long userId, LocalDate missionDate) {
+        return scheduleRepository.findByUserIdAndScheduleDateAndStatus(userId, missionDate, ScheduleStatus.ACTIVE)
+                .map(this::buildScheduleContext)
+                .orElse(DEFAULT_VALUE);
+    }
+
+    private String buildScheduleContext(Schedule schedule) {
+        String title = schedule.getTitle();
+        String companion = getCompanionText(schedule.getCompanion());
+        String category = getCategoryText(schedule.getCategory());
+        String startTime = schedule.getStartTime() == null ? DEFAULT_VALUE : schedule.getStartTime().toString();
+        String endTime = schedule.getEndTime() == null ? DEFAULT_VALUE : schedule.getEndTime().toString();
+
+        if (schedule.getCompanion() == Companion.ALONE) {
+            return "일정 제목: " + title + ", 일정 유형: " + category + ", 시작 시각: " + startTime + ", 종료 시각: " + endTime;
         }
 
-        return companion + "와 " + getCategoryText(schedule.getCategory());
+        return "일정 제목: " + title + ", 동행자: " + companion + ", 일정 유형: " + category
+                + ", 시작 시각: " + startTime + ", 종료 시각: " + endTime;
+    }
+
+    private String buildScheduleStep(Schedule schedule) {
+        String companion = getCompanionText(schedule.getCompanion());
+        String category = getCategoryText(schedule.getCategory());
+
+        if (schedule.getCompanion() == Companion.ALONE) {
+            return category;
+        }
+
+        return companion + "와 " + category;
     }
 
     private String getCompanionText(Companion companion) {
         return switch (companion) {
+            case ALONE -> "혼자";
             case LOVER -> "연인";
             case COWORKER -> "직장동료";
             case FRIEND -> "친구";
@@ -359,7 +451,7 @@ public class MissionService {
         return switch (category) {
             case DATE -> "데이트하기";
             case MEETING -> "미팅 참석하기";
-            case SELF_CARE -> "셀프케어 시간 보내기";
+            case SELF_CARE -> "자기관리 시간 보내기";
             case DRINKING -> "술자리 참석하기";
             case TRAVEL -> "여행 다녀오기";
             case WEDDING -> "결혼식 참석하기";

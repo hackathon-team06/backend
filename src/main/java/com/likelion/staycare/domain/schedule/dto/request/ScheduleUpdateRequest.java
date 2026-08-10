@@ -10,14 +10,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Schema(
-        name = "ScheduleCreateRequest",
+        name = "ScheduleUpdateRequest",
         description = """
-                일정 등록 요청
+                일정 수정 요청
                 companion 선택값: ALONE, FAMILY, FRIEND, LOVER, COWORKER, ACQUAINTANCE
                 category 선택값: SELF_CARE, MEETING, DATE, TRAVEL, EVENT, CEREMONY, WEDDING, DRINKING, TALK
                 """
 )
-public record ScheduleCreateRequest(
+public record ScheduleUpdateRequest(
         @NotBlank(message = "일정 제목을 입력해주세요.")
         @Schema(description = "일정 제목", example = "친구 결혼식")
         String title,
