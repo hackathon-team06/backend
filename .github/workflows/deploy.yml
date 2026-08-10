@@ -79,6 +79,10 @@ jobs:
               -e DB_PASSWORD2="${{ secrets.DB_PASSWORD2 }}" \
               -e JWT_SECRET1="${{ secrets.JWT_SECRET1 }}" \
               -e FIREBASE_SERVICE_ACCOUNT_B64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}" \
+              -e AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}" \
+              -e AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}" \
+              -e AWS_REGION="ap-northeast-2" \
+              -e AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
               staycare-api:latest
 
             sleep 20
