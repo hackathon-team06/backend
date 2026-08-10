@@ -62,13 +62,14 @@ public class UserService {
         return UserResponse.from(user);
     }
 
-
+    @Transactional
     public UserResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
         return UserResponse.from(user);
     }
 
+    @Transactional
     public UserResponse updateProfileImage(Long userId, MultipartFile image) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -89,6 +90,7 @@ public class UserService {
         }
     }
 
+    @Transactional
     public UserResponse deleteProfileImage(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -101,6 +103,7 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+    @Transactional
     private void validateImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
             throw new IllegalArgumentException("이미지 파일은 필수입니다.");
