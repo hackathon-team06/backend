@@ -5,6 +5,7 @@ public record EveningMissionRequest(
         String skinType,
         String goal,
         String checkCycle,
+        String todaySchedule,
         String todaySkinCondition
 ) {
 }
