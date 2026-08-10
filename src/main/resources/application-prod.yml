@@ -22,6 +22,10 @@ logging:
     root: info
     org.hibernate.SQL: warn
 
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-5.5
+
 jwt:
   secret: ${JWT_SECRET2}
   access-token-expiration: 1800000
