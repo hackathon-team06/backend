@@ -73,7 +73,7 @@ jobs:
               --name staycare-api \
               --restart unless-stopped \
               -p 8080:8080 \
-              -e SPRING_PROFILES_ACTIVE=prod \
+              -e SPRING_PROFILES_ACTIVE=deploy \
               -e DB_URL2="${{ secrets.DB_URL2 }}" \
               -e DB_USERNAME2="${{ secrets.DB_USERNAME2 }}" \
               -e DB_PASSWORD2="${{ secrets.DB_PASSWORD2 }}" \
@@ -83,6 +83,7 @@ jobs:
               -e AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}" \
               -e AWS_REGION="ap-northeast-2" \
               -e AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
+              -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
               staycare-api:latest
 
             sleep 20
