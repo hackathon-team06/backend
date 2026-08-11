@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Getter
@@ -36,16 +37,21 @@ public class User {
 
     // === 자가진단으로만 갱신되는 필드 ===
     @Enumerated(EnumType.STRING)
-    private AgeRange ageRange;
+    private  Gender gender;
+
+    @Column
+    private Integer age;
+
 
     @Enumerated(EnumType.STRING)
     private SkinType skinType;
 
-    @Enumerated(EnumType.STRING)
-    private SleepHours sleepHours;
+    @Column
+    private LocalTime wakeUpTime;
 
-    @Enumerated(EnumType.STRING)
-    private ReturnHomeTime returnHomeTime;
+    @Column
+    private LocalTime returnHomeTime;
+
 
     @Enumerated(EnumType.STRING)
     private CheckCycle checkCycle;
@@ -101,16 +107,18 @@ public class User {
 
     // === 자가진단 결과 반영 메서드 ===
     public void applyDiagnosisResult(
-            AgeRange ageRange,
+            Gender gender,
+            Integer age,
             SkinType skinType,
-            SleepHours sleepHours,
-            ReturnHomeTime returnHomeTime,
+            LocalTime wakeUpTime,
+            LocalTime returnHomeTime,
             CheckCycle checkCycle,
             CareMotivation careMotivation
     ) {
-        this.ageRange = ageRange;
+        this.gender = gender;
+        this.age = age;
         this.skinType = skinType;
-        this.sleepHours = sleepHours;
+        this.wakeUpTime = wakeUpTime;
         this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;

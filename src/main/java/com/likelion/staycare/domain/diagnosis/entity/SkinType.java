@@ -14,7 +14,7 @@ public enum SkinType {
     DRY("건성"),
     OILY("지성"),
     COMBINATION("복합성"),
-    SENSITIVE("민감성"),
+    DEHYDRATED("수부지"),
     NORMAL("중성");
 
     private final String label;

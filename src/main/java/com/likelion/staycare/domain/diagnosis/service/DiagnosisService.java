@@ -35,9 +35,10 @@ public class DiagnosisService {
 
         Diagnosis diagnosis = Diagnosis.builder()
                 .user(user)
-                .ageRange(request.ageRange())
-                .sleepHours(request.sleepHours())
+                .gender(request.gender())
+                .age(request.age())
                 .skinType(request.skinType())
+                .wakeUpTime(request.wakeUpTime())
                 .returnHomeTime(request.returnHomeTime())
                 .checkCycle(request.checkCycle())
                 .careMotivation(request.careMotivation())
@@ -46,9 +47,10 @@ public class DiagnosisService {
 
         // User 프로필에도 반영
         user.applyDiagnosisResult(
-                request.ageRange(),
+                request.gender(),
+                request.age(),
                 request.skinType(),
-                request.sleepHours(),
+                request.wakeUpTime(),
                 request.returnHomeTime(),
                 request.checkCycle(),
                 request.careMotivation()

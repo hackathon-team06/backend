@@ -1,6 +1,5 @@
 package com.likelion.staycare.domain.mission.service;
 
-import com.likelion.staycare.domain.diagnosis.entity.AgeRange;
 import com.likelion.staycare.domain.diagnosis.entity.CheckCycle;
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
@@ -89,7 +88,7 @@ public class MissionService {
                 .orElse(null);
 
         MorningMissionRequest request = new MorningMissionRequest(
-                getAge(user.getAgeRange()),
+                getAge(user.getAge()),
                 getSkinType(user.getSkinType()),
                 getGoal(user.getGoal()),
                 getCheckCycle(user.getCheckCycle()),
@@ -146,7 +145,7 @@ public class MissionService {
                 ));
 
         EveningMissionRequest request = new EveningMissionRequest(
-                getAge(user.getAgeRange()),
+                getAge(user.getAge()),
                 getSkinType(user.getSkinType()),
                 getGoal(user.getGoal()),
                 getCheckCycle(user.getCheckCycle()),
@@ -419,9 +418,12 @@ public class MissionService {
         return checkedCount + "/" + checks.size() + " 단계 완료";
     }
 
-    private String getAge(AgeRange ageRange) {
-        return ageRange == null ? DEFAULT_VALUE : ageRange.getLabel();
+    private String getAge(Integer age) {
+        return age == null ? DEFAULT_VALUE : String.valueOf(age);
     }
+
+
+
 
     private String getSkinType(SkinType skinType) {
         return skinType == null ? DEFAULT_VALUE : skinType.getLabel();
