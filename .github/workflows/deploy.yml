@@ -94,6 +94,5 @@ jobs:
                  --retry-delay 5 \
                  --retry-connrefused \
                  --fail \
-                 http://localhost:8080/api/health
 
             docker image prune -f
