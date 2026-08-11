@@ -1,6 +1,5 @@
 package com.likelion.staycare.domain.notification.scheduler;
 
-import com.likelion.staycare.domain.diagnosis.entity.ReturnHomeTime;
 import com.likelion.staycare.domain.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,30 +15,21 @@ import java.time.ZoneId;
 @RequiredArgsConstructor
 public class ReturnHomeReminderScheduler {
 
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
     private final NotificationService notificationService;
 
-    // 운영용: 매시간 정각 실행
-    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
+    // 매분 실행
+    @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     public void sendReminder() {
-        LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"))
-                .withMinute(0)
+        LocalTime now = LocalTime.now(KOREA_ZONE)
                 .withSecond(0)
                 .withNano(0);
 
-        log.info("[Scheduler] 실행됨 - 현재시간={}", now);
+        LocalDate today = LocalDate.now(KOREA_ZONE);
 
-        ReturnHomeTime slot = ReturnHomeTime.from(now);
+        log.info("[Scheduler] 실행됨 - 현재시간={}, 오늘={}", now, today);
 
-        log.info("[Scheduler] 매핑된 슬롯={}", slot);
-
-        if (slot == null) {
-            log.info("[Scheduler] 현재 시간에 매칭되는 귀가 시간 슬롯 없음");
-            return;
-        }
-
-        notificationService.sendReturnHomeReminders(
-                slot,
-                LocalDate.now(ZoneId.of("Asia/Seoul"))
-        );
+        notificationService.sendReturnHomeReminders(now, today);
     }
 }

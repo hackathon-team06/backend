@@ -1,6 +1,5 @@
 package com.likelion.staycare.domain.notification.service;
 
-import com.likelion.staycare.domain.diagnosis.entity.ReturnHomeTime;
 import com.likelion.staycare.domain.notification.dto.PushTokenRequest;
 import com.likelion.staycare.domain.notification.entity.NotificationLog;
 import com.likelion.staycare.domain.notification.entity.NotificationType;
@@ -17,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Slf4j
@@ -68,10 +68,10 @@ public class NotificationService {
         log.info("[NotificationService] 테스트 알림 발송 완료 - userId={}", user.getId());
     }
 
-    public void sendReturnHomeReminders(ReturnHomeTime slot, LocalDate today) {
-        log.info("[NotificationService] 알림 발송 시작 - slot={}, today={}", slot, today);
+    public void sendReturnHomeReminders(LocalTime targetTime, LocalDate today) {
+        log.info("[NotificationService] 알림 발송 시작 - slot={}, today={}", targetTime, today);
 
-        List<User> users = userRepository.findAllByNotificationEnabledTrueAndReturnHomeTime(slot);
+        List<User> users = userRepository.findAllByNotificationEnabledTrueAndReturnHomeTime(targetTime);
         log.info("[NotificationService] 조회된 사용자 수={}", users.size());
 
         for (User user : users) {

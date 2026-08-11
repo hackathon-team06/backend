@@ -4,16 +4,19 @@ import com.likelion.staycare.domain.diagnosis.entity.*;
 import com.likelion.staycare.domain.user.entity.User;
 import lombok.Builder;
 
+import java.time.LocalTime;
+
 @Builder
 public record UserResponse(
         Long userId,
         String nickname,
         String goal,
         String profileImageUrl,
-        AgeRange ageRange,
+        Integer age,
+        Gender gender,
         SkinType skinType,
-        SleepHours sleepHours,
-        ReturnHomeTime returnHomeTime,
+        LocalTime wakeUpTime,
+        LocalTime returnHomeTime,
         CheckCycle checkCycle,
         CareMotivation careMotivation,
         Boolean notificationEnabled
@@ -25,9 +28,10 @@ public record UserResponse(
                 .nickname(user.getNickname())
                 .goal(user.getGoal())
                 .profileImageUrl(user.getProfileImageUrl())
-                .ageRange(user.getAgeRange())
+                .age(user.getAge())
+                .gender(user.getGender())
                 .skinType(user.getSkinType())
-                .sleepHours(user.getSleepHours())
+                .wakeUpTime(user.getWakeUpTime())
                 .returnHomeTime(user.getReturnHomeTime())
                 .checkCycle(user.getCheckCycle())
                 .careMotivation(user.getCareMotivation())

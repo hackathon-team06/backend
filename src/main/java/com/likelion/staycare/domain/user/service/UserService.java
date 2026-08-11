@@ -23,6 +23,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final S3Uploader s3Uploader;
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new CustomException(UserErrorCode.INVALID_PASSWORD));
@@ -32,7 +33,10 @@ public class UserService {
         }
 
         String accessToken = jwtProvider.createAccessToken(user.getId());
-        return LoginResponse.of(accessToken, user.getId());
+        String refreshToken = jwtProvider.createRefreshToken(user.getId());
+
+
+        return LoginResponse.of(accessToken,refreshToken, user.getId());
     }
 
     @Transactional
@@ -103,7 +107,6 @@ public class UserService {
         return UserResponse.from(user);
     }
 
-    @Transactional
     private void validateImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
             throw new IllegalArgumentException("이미지 파일은 필수입니다.");
@@ -119,4 +122,5 @@ public class UserService {
             throw new IllegalArgumentException("이미지는 5MB 이하만 업로드할 수 있습니다.");
         }
     }
+
 }

@@ -10,6 +10,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Getter
@@ -26,21 +27,23 @@ public class Diagnosis {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AgeRange ageRange;
+    private Gender gender;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private SleepHours sleepHours;
+    private Integer age;
+
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SkinType skinType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ReturnHomeTime returnHomeTime;
+    @Column
+    private LocalTime wakeUpTime;
+
+    @Column
+    private LocalTime returnHomeTime;
+
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -54,20 +57,32 @@ public class Diagnosis {
     private String recommendation;
 
     @CreatedDate
+    @Column(name = "diagnosed_at", nullable = false, updatable = false)
     private LocalDateTime diagnosedAt;
 
+    @PrePersist
+    protected void onCreate() {
+        if (this.diagnosedAt == null) {
+            this.diagnosedAt = LocalDateTime.now();
+        }
+    }
+
+
+
     @Builder
-    public Diagnosis(User user, AgeRange ageRange, SleepHours sleepHours,
-                     SkinType skinType, ReturnHomeTime returnHomeTime,
+    public Diagnosis(User user, Gender gender, Integer age,
+                     SkinType skinType, LocalTime wakeUpTime, LocalTime returnHomeTime,
                      CheckCycle checkCycle, CareMotivation careMotivation,
                      String recommendation) {
         this.user = user;
-        this.ageRange = ageRange;
-        this.sleepHours = sleepHours;
+        this.gender = gender;
+        this.age = age;
         this.skinType = skinType;
+        this.wakeUpTime = wakeUpTime;
         this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
         this.recommendation = recommendation;
     }
+
 }
