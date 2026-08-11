@@ -29,6 +29,7 @@ openai:
 jwt:
   secret: ${JWT_SECRET2}
   access-token-expiration: 1800000
+  refresh-token-expiration: 1209600000
 
 cors:
   allowed-origins:
