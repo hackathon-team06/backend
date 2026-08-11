@@ -245,24 +245,23 @@ public class OpenAiService {
                 반드시 아래 규칙을 따른다.
                 - 반드시 한국어로만 작성한다.
                 - 반드시 JSON만 출력한다.
-                - Markdown을 출력하지 않는다.
-                - 코드블록을 출력하지 않는다.
-                - 설명 문장을 추가하지 않는다.
+                - Markdown은 출력하지 않는다.
+                - 코드블록은 출력하지 않는다.
+                - 설명 문장은 추가하지 않는다.
                 - title, description, steps, tip만 출력한다.
                 - 피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
                 - steps 배열에는 반드시 3개의 문자열만 포함한다.
                 - 추가 step을 생성하지 않는다.
                 - 일정 관련 미션은 생성하지 않는다.
-                - 화장품 추천을 하지 않는다.
-                - 의료행위, 치료행위, 의학적 진단을 하지 않는다.
+                - 화장품 추천은 하지 않는다.
+                - 의료행위, 치료행위, 의학적 진단은 하지 않는다.
                 - 사용자의 목표(goal)와 관리 주기(checkCycle)를 반드시 고려한다.
-                - 오늘 일정이 있으면 일정 전후에 피부 자극이 커지지 않도록 루틴 강도와 순서를 조절한다.
-                - 예를 들어 결혼식, 행사, 데이트 전에는 붉어짐과 번들거림을 줄이는 방향을 우선한다.
-                - 예를 들어 여행, 술자리, 장시간 외출 전후에는 수분 관리와 자극 최소화를 우선한다.
-                - goal이 촉촉한 피부라면 보습 중심 미션을 우선한다.
-                - goal이 트러블 진정이라면 진정 중심 미션을 우선한다.
-                - checkCycle이 짧거나 매일에 가깝다면 매일 수행 가능한 루틴을 제안한다.
-                - checkCycle 주기가 길다면 그에 맞는 난이도의 루틴을 제안한다.
+                - 오늘 일정이 있으면 일정 전후에 피부가 무리되지 않도록 루틴 강도와 순서를 조절한다.
+                - 건성(DRY)은 건조함과 보습 관리 중심으로 고려한다.
+                - 지성(OILY)은 과도한 유분과 산뜻한 관리 중심으로 고려한다.
+                - 복합성(COMBINATION)은 부위별 유수분 균형 관리 중심으로 고려한다.
+                - 수부지(DEHYDRATED)는 겉 유분은 있을 수 있지만 속 수분 부족을 함께 고려하여 수분 공급과 유수분 균형 관리 중심으로 고려한다.
+                - 중성(NORMAL)은 기본적인 피부 컨디션 유지 중심으로 고려한다.
                 - 오늘 실제로 수행 가능한 행동만 제안한다.
                 - title은 한 줄로 작성한다.
                 - description은 한두 문장으로 간단하게 작성한다.
@@ -283,10 +282,11 @@ public class OpenAiService {
                 - 전날 저녁 피부 상태 : %s
                 - 전날 저녁 미션 : %s
                 - 전날 미션 수행 결과 : %s
+                - 피부 타입 참고 : %s
 
                 전날 데이터가 존재하지 않으면 "없음"으로 간주한다.
                 첫 가입 사용자라면 전날 피부 상태와 전날 미션 수행 결과를 "없음"으로 처리하고 피부 타입, goal, checkCycle, 오늘 일정 중심으로 미션을 생성한다.
-                오늘 일정이 존재하면 일정 전 피부 컨디션을 무리 없이 유지할 수 있도록 피부관리 루틴을 조절한다.
+                오늘 일정이 존재하면 일정 전후로 피부에 무리가 가지 않도록 루틴 강도와 순서를 조절한다.
 
                 피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
                 steps 배열에는 반드시 3개의 문자열만 포함한다.
@@ -300,7 +300,8 @@ public class OpenAiService {
                 defaultValue(request.todaySchedule()),
                 defaultValue(request.previousSkinCondition()),
                 defaultValue(request.previousEveningMission()),
-                defaultValue(request.previousEveningMissionResult())
+                defaultValue(request.previousEveningMissionResult()),
+                describeSkinType(request.skinType())
         );
     }
 
@@ -314,10 +315,11 @@ public class OpenAiService {
                 - 관리 주기(checkCycle) : %s
                 - 오늘 일정 : %s
                 - 오늘 피부 상태 : %s
+                - 피부 타입 참고 : %s
 
                 오늘 입력한 피부 상태를 반드시 반영한다.
-                goal과 checkCycle은 참고 정보로 활용하되, 오늘 실제로 수행 가능한 피부관리 미션만 제안한다.
-                오늘 일정이 있었다면 일정 전후 피로감, 자극, 번들거림, 건조함 가능성을 고려해 루틴을 조절한다.
+                goal과 checkCycle은 참고 정보로 사용하되, 오늘 실제로 수행 가능한 피부관리 미션만 제안한다.
+                오늘 일정이 있었다면 일정 전후 피로감, 번들거림, 건조함 가능성을 고려해 루틴을 조절한다.
 
                 피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
                 steps 배열에는 반드시 3개의 문자열만 포함한다.
@@ -329,7 +331,8 @@ public class OpenAiService {
                 defaultValue(request.goal()),
                 defaultValue(request.checkCycle()),
                 defaultValue(request.todaySchedule()),
-                defaultValue(request.todaySkinCondition())
+                defaultValue(request.todaySkinCondition()),
+                describeSkinType(request.skinType())
         );
     }
 
@@ -354,6 +357,21 @@ public class OpenAiService {
 
     private String defaultValue(String value) {
         return value == null || value.isBlank() ? "없음" : value;
+    }
+
+    private String describeSkinType(String skinType) {
+        if (skinType == null || skinType.isBlank()) {
+            return "없음";
+        }
+
+        return switch (skinType) {
+            case "건성", "DRY" -> "건조함과 보습 관리 중심";
+            case "지성", "OILY" -> "과도한 유분과 산뜻한 관리 중심";
+            case "복합성", "COMBINATION" -> "부위별 유수분 균형 관리 중심";
+            case "수부지", "DEHYDRATED" -> "겉 유분과 속 수분 부족을 함께 고려한 유수분 균형 관리 중심";
+            case "중성", "NORMAL" -> "기본적인 피부 컨디션 유지 중심";
+            default -> skinType;
+        };
     }
 
     private boolean isBlank(String value) {

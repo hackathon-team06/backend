@@ -21,6 +21,7 @@ import com.likelion.staycare.domain.mission.repository.DailySkinCheckRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionStepRepository;
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
+import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
 import com.likelion.staycare.domain.schedule.entity.enums.Companion;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
@@ -31,11 +32,13 @@ import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import com.likelion.staycare.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,7 @@ public class MissionService {
     private static final String DEFAULT_VALUE = "없음";
     private static final String PROMPT_VERSION = "v1";
     private static final LocalTime MORNING_END_TIME = LocalTime.NOON;
+    private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final DailySkinCheckRepository dailySkinCheckRepository;
@@ -58,11 +62,12 @@ public class MissionService {
     private final UserMissionStepCheckRepository userMissionStepCheckRepository;
     private final ScheduleRepository scheduleRepository;
     private final OpenAiService openAiService;
+    private final PointService pointService;
 
     @Transactional
     public MorningMissionResponse generateMorningMission(Long userId) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission existingMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
@@ -121,7 +126,7 @@ public class MissionService {
     @Transactional
     public EveningMissionResponse generateEveningMission(Long userId, SkinCondition skinCondition) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission existingMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
@@ -175,7 +180,7 @@ public class MissionService {
 
     public TodayMissionResponse getTodayMissions(Long userId) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission morningMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
@@ -209,23 +214,39 @@ public class MissionService {
 
     @Transactional
     public void completeStep(Long userId, Long stepId) {
-        User user = getUser(userId);
-        GeneratedMissionStep generatedMissionStep = generatedMissionStepRepository.findById(stepId)
-                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
+        try {
+            User user = getUser(userId);
+            GeneratedMissionStep generatedMissionStep = generatedMissionStepRepository.findById(stepId)
+                    .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
 
-        GeneratedMission mission = generatedMissionStep.getGeneratedMission();
-        validateMissionOwner(user, mission);
+            GeneratedMission mission = generatedMissionStep.getGeneratedMission();
+            validateMissionOwner(user, mission);
 
-        UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
-                .orElseGet(() -> UserMissionStepCheck.builder()
-                        .generatedMissionStep(generatedMissionStep)
-                        .build());
+            UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
+                    .orElseGet(() -> UserMissionStepCheck.builder()
+                            .generatedMissionStep(generatedMissionStep)
+                            .build());
 
-        stepCheck.updateChecked(true);
-        userMissionStepCheckRepository.save(stepCheck);
+            boolean alreadyChecked = stepCheck.isChecked();
+            stepCheck.updateChecked(true);
+            userMissionStepCheckRepository.saveAndFlush(stepCheck);
 
-        if (isAllStepsCompleted(mission)) {
-            mission.complete();
+            if (!alreadyChecked && isPointRewardStep(generatedMissionStep)) {
+                pointService.rewardMissionStep(user, generatedMissionStep);
+            }
+
+            if (isAllPointRewardStepsCompleted(mission)) {
+                pointService.rewardMissionCompleteBonus(user, mission);
+            }
+
+            if (isAllStepsCompleted(mission)) {
+                mission.complete();
+                generatedMissionRepository.saveAndFlush(mission);
+            }
+        } catch (CustomException e) {
+            throw e;
+        } catch (DataAccessException e) {
+            throw new CustomException(MissionErrorCode.MISSION_STEP_PROCESS_FAILED);
         }
     }
 
@@ -293,15 +314,23 @@ public class MissionService {
     }
 
     private void validateMorningMissionTime() {
-        if (!LocalTime.now().isBefore(MORNING_END_TIME)) {
+        if (!getCurrentTime().isBefore(MORNING_END_TIME)) {
             throw new CustomException(MissionErrorCode.MORNING_MISSION_TIME_CLOSED);
         }
     }
 
     private void validateEveningMissionTime() {
-        if (LocalTime.now().isBefore(MORNING_END_TIME)) {
+        if (getCurrentTime().isBefore(MORNING_END_TIME)) {
             throw new CustomException(MissionErrorCode.EVENING_MISSION_TIME_ONLY);
         }
+    }
+
+    private LocalDate getCurrentDate() {
+        return LocalDate.now(KOREA_ZONE_ID);
+    }
+
+    private LocalTime getCurrentTime() {
+        return LocalTime.now(KOREA_ZONE_ID);
     }
 
     private boolean isAllStepsCompleted(GeneratedMission mission) {
@@ -313,6 +342,32 @@ public class MissionService {
         }
 
         return checks.stream().allMatch(UserMissionStepCheck::isChecked);
+    }
+
+    private boolean isAllPointRewardStepsCompleted(GeneratedMission mission) {
+        List<GeneratedMissionStep> rewardSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
+                .stream()
+                .filter(this::isPointRewardStep)
+                .toList();
+        List<UserMissionStepCheck> checks = userMissionStepCheckRepository.findByGeneratedMissionStepGeneratedMission(mission);
+
+        if (rewardSteps.isEmpty()) {
+            return false;
+        }
+
+        Map<Long, UserMissionStepCheck> checksByStepId = checks.stream()
+                .collect(Collectors.toMap(
+                        check -> check.getGeneratedMissionStep().getId(),
+                        Function.identity()
+                ));
+
+        return rewardSteps.stream().allMatch(step ->
+                checksByStepId.get(step.getId()) != null && checksByStepId.get(step.getId()).isChecked()
+        );
+    }
+
+    private boolean isPointRewardStep(GeneratedMissionStep step) {
+        return step.getStepOrder() <= 3;
     }
 
     private MorningMissionResponse toMorningMissionResponse(GeneratedMission mission) {
