@@ -22,6 +22,7 @@ import com.likelion.staycare.domain.mission.repository.DailySkinCheckRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionStepRepository;
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
+import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
 import com.likelion.staycare.domain.schedule.entity.enums.Companion;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
@@ -59,6 +60,7 @@ public class MissionService {
     private final UserMissionStepCheckRepository userMissionStepCheckRepository;
     private final ScheduleRepository scheduleRepository;
     private final OpenAiService openAiService;
+    private final PointService pointService;
 
     @Transactional
     public MorningMissionResponse generateMorningMission(Long userId) {
@@ -222,8 +224,17 @@ public class MissionService {
                         .generatedMissionStep(generatedMissionStep)
                         .build());
 
+        boolean alreadyChecked = stepCheck.isChecked();
         stepCheck.updateChecked(true);
         userMissionStepCheckRepository.save(stepCheck);
+
+        if (!alreadyChecked && isPointRewardStep(generatedMissionStep)) {
+            pointService.rewardMissionStep(user, generatedMissionStep);
+        }
+
+        if (isAllPointRewardStepsCompleted(mission)) {
+            pointService.rewardMissionCompleteBonus(user, mission);
+        }
 
         if (isAllStepsCompleted(mission)) {
             mission.complete();
@@ -314,6 +325,32 @@ public class MissionService {
         }
 
         return checks.stream().allMatch(UserMissionStepCheck::isChecked);
+    }
+
+    private boolean isAllPointRewardStepsCompleted(GeneratedMission mission) {
+        List<GeneratedMissionStep> rewardSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
+                .stream()
+                .filter(this::isPointRewardStep)
+                .toList();
+        List<UserMissionStepCheck> checks = userMissionStepCheckRepository.findByGeneratedMissionStepGeneratedMission(mission);
+
+        if (rewardSteps.isEmpty()) {
+            return false;
+        }
+
+        Map<Long, UserMissionStepCheck> checksByStepId = checks.stream()
+                .collect(Collectors.toMap(
+                        check -> check.getGeneratedMissionStep().getId(),
+                        Function.identity()
+                ));
+
+        return rewardSteps.stream().allMatch(step ->
+                checksByStepId.get(step.getId()) != null && checksByStepId.get(step.getId()).isChecked()
+        );
+    }
+
+    private boolean isPointRewardStep(GeneratedMissionStep step) {
+        return step.getStepOrder() <= 3;
     }
 
     private MorningMissionResponse toMorningMissionResponse(GeneratedMission mission) {
