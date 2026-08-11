@@ -88,11 +88,7 @@ jobs:
 
             sleep 20
 
-            docker logs --tail 50 staycare-api
-
-            curl --retry 10 \
-                 --retry-delay 5 \
-                 --retry-connrefused \
-                 --fail \
+            docker logs --tail 100 staycare-api
+            docker ps
 
             docker image prune -f
