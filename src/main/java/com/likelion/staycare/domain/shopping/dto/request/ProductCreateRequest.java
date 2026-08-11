@@ -30,7 +30,12 @@ public record ProductCreateRequest(
         ProductCategory category,
 
         @NotEmpty(message = "추천 피부 타입을 하나 이상 선택해주세요.")
-        @Schema(description = "추천 피부 타입 목록")
+        @Schema(
+                description = "추천 피부 타입 목록",
+                allowableValues = {
+                        "DRY", "OILY", "COMBINATION", "DEHYDRATED", "NORMAL"
+                }
+        )
         Set<SkinType> skinTypes,
 
         @NotBlank(message = "상품 이미지 URL을 입력해주세요.")

@@ -32,6 +32,7 @@ import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import com.likelion.staycare.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -211,32 +212,39 @@ public class MissionService {
 
     @Transactional
     public void completeStep(Long userId, Long stepId) {
-        User user = getUser(userId);
-        GeneratedMissionStep generatedMissionStep = generatedMissionStepRepository.findById(stepId)
-                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
+        try {
+            User user = getUser(userId);
+            GeneratedMissionStep generatedMissionStep = generatedMissionStepRepository.findById(stepId)
+                    .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
 
-        GeneratedMission mission = generatedMissionStep.getGeneratedMission();
-        validateMissionOwner(user, mission);
+            GeneratedMission mission = generatedMissionStep.getGeneratedMission();
+            validateMissionOwner(user, mission);
 
-        UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
-                .orElseGet(() -> UserMissionStepCheck.builder()
-                        .generatedMissionStep(generatedMissionStep)
-                        .build());
+            UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
+                    .orElseGet(() -> UserMissionStepCheck.builder()
+                            .generatedMissionStep(generatedMissionStep)
+                            .build());
 
-        boolean alreadyChecked = stepCheck.isChecked();
-        stepCheck.updateChecked(true);
-        userMissionStepCheckRepository.save(stepCheck);
+            boolean alreadyChecked = stepCheck.isChecked();
+            stepCheck.updateChecked(true);
+            userMissionStepCheckRepository.saveAndFlush(stepCheck);
 
-        if (!alreadyChecked && isPointRewardStep(generatedMissionStep)) {
-            pointService.rewardMissionStep(user, generatedMissionStep);
-        }
+            if (!alreadyChecked && isPointRewardStep(generatedMissionStep)) {
+                pointService.rewardMissionStep(user, generatedMissionStep);
+            }
 
-        if (isAllPointRewardStepsCompleted(mission)) {
-            pointService.rewardMissionCompleteBonus(user, mission);
-        }
+            if (isAllPointRewardStepsCompleted(mission)) {
+                pointService.rewardMissionCompleteBonus(user, mission);
+            }
 
-        if (isAllStepsCompleted(mission)) {
-            mission.complete();
+            if (isAllStepsCompleted(mission)) {
+                mission.complete();
+                generatedMissionRepository.saveAndFlush(mission);
+            }
+        } catch (CustomException e) {
+            throw e;
+        } catch (DataAccessException e) {
+            throw new CustomException(MissionErrorCode.MISSION_STEP_PROCESS_FAILED);
         }
     }
 

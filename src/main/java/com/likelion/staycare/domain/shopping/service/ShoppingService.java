@@ -50,7 +50,7 @@ public class ShoppingService {
         return ProductResponse.from(product, false);
     }
 
-    public List<ProductResponse> getProducts(Long userId, SkinType skinType, ProductCategory category) {
+    public List<ProductResponse> getProducts(Long userId, String skinType, ProductCategory category) {
         User user = getUser(userId);
         SkinType resolvedSkinType = resolveSkinType(user, skinType);
         ProductCategory resolvedCategory = category == null ? DEFAULT_CATEGORY : category;
@@ -113,9 +113,13 @@ public class ShoppingService {
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
     }
 
-    private SkinType resolveSkinType(User user, SkinType skinType) {
-        if (skinType != null) {
-            return skinType;
+    private SkinType resolveSkinType(User user, String skinType) {
+        if (skinType != null && !skinType.isBlank()) {
+            try {
+                return SkinType.from(skinType);
+            } catch (IllegalArgumentException e) {
+                throw new CustomException(ShoppingErrorCode.INVALID_SKIN_TYPE);
+            }
         }
 
         if (!user.hasDiagnosis()) {

@@ -1,12 +1,13 @@
 package com.likelion.staycare.domain.shopping.controller;
 
-import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
 import com.likelion.staycare.domain.shopping.entity.ProductCategory;
 import com.likelion.staycare.domain.shopping.service.ShoppingService;
 import com.likelion.staycare.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,14 @@ public class ShoppingController {
     @GetMapping("/products")
     public ResponseEntity<List<ProductResponse>> getProducts(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) SkinType skinType,
+            @Parameter(
+                    description = "피부 타입 필터. 영문 enum 또는 한글 라벨을 모두 지원합니다.",
+                    schema = @Schema(allowableValues = {
+                            "DRY", "OILY", "COMBINATION", "DEHYDRATED", "NORMAL",
+                            "건성", "지성", "복합성", "수부지", "중성"
+                    })
+            )
+            @RequestParam(required = false) String skinType,
             @RequestParam(required = false) ProductCategory category
     ) {
         return ResponseEntity.ok(
@@ -57,7 +65,7 @@ public class ShoppingController {
         );
     }
 
-    @Operation(summary = "상품 찜", description = "현재 로그인 사용자가 상품을 찜합니다.")
+    @Operation(summary = "상품 찜", description = "현재 로그인한 사용자가 상품을 찜합니다.")
     @PostMapping("/products/{productId}/likes")
     public ResponseEntity<Void> likeProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -67,7 +75,7 @@ public class ShoppingController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "상품 찜 취소", description = "현재 로그인 사용자가 상품 찜을 취소합니다.")
+    @Operation(summary = "상품 찜 취소", description = "현재 로그인한 사용자가 상품 찜을 취소합니다.")
     @DeleteMapping("/products/{productId}/likes")
     public ResponseEntity<Void> unlikeProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -77,7 +85,7 @@ public class ShoppingController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "내가 찜한 상품 목록 조회", description = "현재 로그인 사용자의 찜 목록을 조회합니다. category 미입력 시 전체를 반환합니다.")
+    @Operation(summary = "내가 찜한 상품 목록 조회", description = "현재 로그인한 사용자의 찜 목록을 조회합니다. category 미입력 시 전체를 반환합니다.")
     @GetMapping("/likes")
     public ResponseEntity<List<ProductResponse>> getLikedProducts(
             @AuthenticationPrincipal CustomUserDetails userDetails,

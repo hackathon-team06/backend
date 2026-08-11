@@ -26,3 +26,11 @@ CREATE TABLE point_histories (
     CONSTRAINT uk_point_history_user_step_reward UNIQUE (user_id, step_id, reward_type),
     CONSTRAINT uk_point_history_user_mission_reward UNIQUE (user_id, mission_id, reward_type)
 );
+
+UPDATE point_histories
+SET mission_id = NULL
+WHERE reward_type = 'MISSION_STEP';
+
+UPDATE point_histories
+SET step_id = NULL
+WHERE reward_type IN ('MORNING_COMPLETE_BONUS', 'EVENING_COMPLETE_BONUS');

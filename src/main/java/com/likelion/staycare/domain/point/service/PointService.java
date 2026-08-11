@@ -7,6 +7,7 @@ import com.likelion.staycare.domain.point.dto.response.PointResponse;
 import com.likelion.staycare.domain.point.entity.PointHistory;
 import com.likelion.staycare.domain.point.entity.PointRewardType;
 import com.likelion.staycare.domain.point.entity.PointWallet;
+import com.likelion.staycare.domain.point.exception.PointErrorCode;
 import com.likelion.staycare.domain.point.repository.PointHistoryRepository;
 import com.likelion.staycare.domain.point.repository.PointWalletRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -14,6 +15,7 @@ import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import com.likelion.staycare.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,38 +44,47 @@ public class PointService {
 
     @Transactional
     public void rewardMissionStep(User user, GeneratedMissionStep step) {
-        if (pointHistoryRepository.existsByUserIdAndStepIdAndRewardType(
-                user.getId(),
-                step.getId(),
-                PointRewardType.MISSION_STEP
-        )) {
-            return;
-        }
-
         try {
+            if (pointHistoryRepository.existsByUserIdAndStepIdAndRewardType(
+                    user.getId(),
+                    step.getId(),
+                    PointRewardType.MISSION_STEP
+            )) {
+                return;
+            }
+
             pointHistoryRepository.saveAndFlush(
                     PointHistory.builder()
                             .user(user)
-                            .mission(step.getGeneratedMission())
+                            .mission(null)
                             .step(step)
                             .rewardType(PointRewardType.MISSION_STEP)
                             .amount(STEP_POINT)
                             .build()
             );
-            getOrCreatePointWallet(user).addPoint(STEP_POINT);
-        } catch (DataIntegrityViolationException ignored) {
+
+            PointWallet pointWallet = getOrCreatePointWallet(user);
+            pointWallet.addPoint(STEP_POINT);
+            pointWalletRepository.saveAndFlush(pointWallet);
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateRewardException(e)) {
+                return;
+            }
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         }
     }
 
     @Transactional
     public void rewardMissionCompleteBonus(User user, GeneratedMission mission) {
-        PointRewardType rewardType = getCompleteBonusRewardType(mission.getMissionTime());
-
-        if (pointHistoryRepository.existsByUserIdAndMissionIdAndRewardType(user.getId(), mission.getId(), rewardType)) {
-            return;
-        }
-
         try {
+            PointRewardType rewardType = getCompleteBonusRewardType(mission.getMissionTime());
+
+            if (pointHistoryRepository.existsByUserIdAndMissionIdAndRewardType(user.getId(), mission.getId(), rewardType)) {
+                return;
+            }
+
             pointHistoryRepository.saveAndFlush(
                     PointHistory.builder()
                             .user(user)
@@ -82,8 +93,17 @@ public class PointService {
                             .amount(COMPLETE_BONUS_POINT)
                             .build()
             );
-            getOrCreatePointWallet(user).addPoint(COMPLETE_BONUS_POINT);
-        } catch (DataIntegrityViolationException ignored) {
+
+            PointWallet pointWallet = getOrCreatePointWallet(user);
+            pointWallet.addPoint(COMPLETE_BONUS_POINT);
+            pointWalletRepository.saveAndFlush(pointWallet);
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateRewardException(e)) {
+                return;
+            }
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         }
     }
 
@@ -94,18 +114,53 @@ public class PointService {
     }
 
     private PointWallet getOrCreatePointWallet(User user) {
-        return pointWalletRepository.findByUserId(user.getId())
-                .orElseGet(() -> pointWalletRepository.save(
-                        PointWallet.builder()
-                                .user(user)
-                                .point(0)
-                                .build()
-                ));
+        try {
+            return pointWalletRepository.findByUserId(user.getId())
+                    .orElseGet(() -> createPointWallet(user));
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        }
+    }
+
+    private PointWallet createPointWallet(User user) {
+        try {
+            return pointWalletRepository.saveAndFlush(
+                    PointWallet.builder()
+                            .user(user)
+                            .point(0)
+                            .build()
+            );
+        } catch (DataIntegrityViolationException e) {
+            if (isPointWalletDuplicateException(e)) {
+                return pointWalletRepository.findByUserId(user.getId())
+                        .orElseThrow(() -> new CustomException(PointErrorCode.POINT_PROCESS_FAILED));
+            }
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        }
     }
 
     private PointRewardType getCompleteBonusRewardType(MissionTime missionTime) {
         return missionTime == MissionTime.MORNING
                 ? PointRewardType.MORNING_COMPLETE_BONUS
                 : PointRewardType.EVENING_COMPLETE_BONUS;
+    }
+
+    private boolean isDuplicateRewardException(DataIntegrityViolationException e) {
+        String message = extractMessage(e);
+        return message.contains("uk_point_history_user_step_reward")
+                || message.contains("uk_point_history_user_mission_reward");
+    }
+
+    private boolean isPointWalletDuplicateException(DataIntegrityViolationException e) {
+        return extractMessage(e).contains("uk_point_wallet_user");
+    }
+
+    private String extractMessage(Exception e) {
+        if (e.getCause() != null && e.getCause().getMessage() != null) {
+            return e.getCause().getMessage();
+        }
+        return e.getMessage() == null ? "" : e.getMessage();
     }
 }

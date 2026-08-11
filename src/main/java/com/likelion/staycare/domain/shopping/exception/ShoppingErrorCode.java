@@ -12,7 +12,8 @@ public enum ShoppingErrorCode implements BaseErrorCode {
     PRODUCT_LIKE_NOT_FOUND("SHOPPING4042", "해당 찜 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PRODUCT_INACTIVE("SHOPPING4001", "비활성 상품입니다.", HttpStatus.BAD_REQUEST),
     PRODUCT_LIKE_ALREADY_EXISTS("SHOPPING4091", "이미 찜한 상품입니다.", HttpStatus.CONFLICT),
-    SKIN_TYPE_REQUIRED("SHOPPING4002", "자가진단 후 피부 타입을 설정해주세요.", HttpStatus.BAD_REQUEST);
+    SKIN_TYPE_REQUIRED("SHOPPING4002", "자가진단 후 피부 타입을 설정해주세요.", HttpStatus.BAD_REQUEST),
+    INVALID_SKIN_TYPE("SHOPPING4003", "지원하지 않는 피부 타입입니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
