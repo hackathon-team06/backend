@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
 
   sql:
@@ -26,6 +26,7 @@ openai:
 jwt:
   secret: ${JWT_SECRET1}
   access-token-expiration: 1800000
+  refresh-token-expiration: 1209600000
 
 cors:
   allowed-origins:
