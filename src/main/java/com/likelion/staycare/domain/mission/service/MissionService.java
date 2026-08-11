@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ public class MissionService {
     private static final String DEFAULT_VALUE = "없음";
     private static final String PROMPT_VERSION = "v1";
     private static final LocalTime MORNING_END_TIME = LocalTime.NOON;
+    private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final DailySkinCheckRepository dailySkinCheckRepository;
@@ -65,7 +67,7 @@ public class MissionService {
     @Transactional
     public MorningMissionResponse generateMorningMission(Long userId) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission existingMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
@@ -124,7 +126,7 @@ public class MissionService {
     @Transactional
     public EveningMissionResponse generateEveningMission(Long userId, SkinCondition skinCondition) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission existingMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
@@ -178,7 +180,7 @@ public class MissionService {
 
     public TodayMissionResponse getTodayMissions(Long userId) {
         User user = getUser(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = getCurrentDate();
 
         GeneratedMission morningMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
@@ -312,15 +314,23 @@ public class MissionService {
     }
 
     private void validateMorningMissionTime() {
-        if (!LocalTime.now().isBefore(MORNING_END_TIME)) {
+        if (!getCurrentTime().isBefore(MORNING_END_TIME)) {
             throw new CustomException(MissionErrorCode.MORNING_MISSION_TIME_CLOSED);
         }
     }
 
     private void validateEveningMissionTime() {
-        if (LocalTime.now().isBefore(MORNING_END_TIME)) {
+        if (getCurrentTime().isBefore(MORNING_END_TIME)) {
             throw new CustomException(MissionErrorCode.EVENING_MISSION_TIME_ONLY);
         }
+    }
+
+    private LocalDate getCurrentDate() {
+        return LocalDate.now(KOREA_ZONE_ID);
+    }
+
+    private LocalTime getCurrentTime() {
+        return LocalTime.now(KOREA_ZONE_ID);
     }
 
     private boolean isAllStepsCompleted(GeneratedMission mission) {
