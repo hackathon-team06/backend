@@ -85,6 +85,15 @@ public class ShoppingController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "제휴 상품 삭제", description = "활성 상태의 제휴 상품을 삭제 처리합니다.")
+    @DeleteMapping("/products/{productId}")
+    public ResponseEntity<Void> deleteProduct(
+            @PathVariable Long productId
+    ) {
+        shoppingService.deleteProduct(productId);
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "내가 찜한 상품 목록 조회", description = "현재 로그인한 사용자의 찜 목록을 조회합니다. category 미입력 시 전체를 반환합니다.")
     @GetMapping("/likes")
     public ResponseEntity<List<ProductResponse>> getLikedProducts(

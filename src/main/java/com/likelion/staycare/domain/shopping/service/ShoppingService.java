@@ -96,6 +96,14 @@ public class ShoppingService {
         productLikeRepository.delete(productLike);
     }
 
+    @Transactional
+    public void deleteProduct(Long productId) {
+        Product product = productRepository.findByIdAndIsActiveTrue(productId)
+                .orElseThrow(() -> new CustomException(ShoppingErrorCode.PRODUCT_NOT_FOUND));
+
+        product.deactivate();
+    }
+
     public List<ProductResponse> getLikedProducts(Long userId, ProductCategory category) {
         getUser(userId);
 
