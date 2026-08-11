@@ -104,4 +104,8 @@ public class Product extends BaseTimeEntity {
         this.priceUpdatedAt = LocalDateTime.now();
         this.isActive = true;
     }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }
