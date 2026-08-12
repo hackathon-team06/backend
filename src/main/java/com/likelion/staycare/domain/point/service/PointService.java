@@ -27,6 +27,8 @@ public class PointService {
 
     private static final int STEP_POINT = 1;
     private static final int COMPLETE_BONUS_POINT = 2;
+    private static final int DIAGNOSIS_REWARD_POINT = 10;
+    private static final String DIAGNOSIS_REWARD_KEY = "ONBOARDING_DIAGNOSIS";
 
     private final UserRepository userRepository;
     private final PointHistoryRepository pointHistoryRepository;
@@ -59,6 +61,7 @@ public class PointService {
                             .mission(null)
                             .step(step)
                             .rewardType(PointRewardType.MISSION_STEP)
+                            .rewardKey(null)
                             .amount(STEP_POINT)
                             .build()
             );
@@ -81,7 +84,11 @@ public class PointService {
         try {
             PointRewardType rewardType = getCompleteBonusRewardType(mission.getMissionTime());
 
-            if (pointHistoryRepository.existsByUserIdAndMissionIdAndRewardType(user.getId(), mission.getId(), rewardType)) {
+            if (pointHistoryRepository.existsByUserIdAndMissionIdAndRewardType(
+                    user.getId(),
+                    mission.getId(),
+                    rewardType
+            )) {
                 return;
             }
 
@@ -89,7 +96,9 @@ public class PointService {
                     PointHistory.builder()
                             .user(user)
                             .mission(mission)
+                            .step(null)
                             .rewardType(rewardType)
+                            .rewardKey(null)
                             .amount(COMPLETE_BONUS_POINT)
                             .build()
             );
@@ -100,6 +109,43 @@ public class PointService {
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateRewardException(e)) {
                 return;
+            }
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        }
+    }
+
+    @Transactional
+    public int rewardDiagnosisComplete(User user) {
+        try {
+            if (pointHistoryRepository.existsByUserIdAndRewardTypeAndRewardKey(
+                    user.getId(),
+                    PointRewardType.DIAGNOSIS_COMPLETE,
+                    DIAGNOSIS_REWARD_KEY
+            )) {
+                return 0;
+            }
+
+            pointHistoryRepository.saveAndFlush(
+                    PointHistory.builder()
+                            .user(user)
+                            .mission(null)
+                            .step(null)
+                            .rewardType(PointRewardType.DIAGNOSIS_COMPLETE)
+                            .rewardKey(DIAGNOSIS_REWARD_KEY)
+                            .amount(DIAGNOSIS_REWARD_POINT)
+                            .build()
+            );
+
+            PointWallet pointWallet = getOrCreatePointWallet(user);
+            pointWallet.addPoint(DIAGNOSIS_REWARD_POINT);
+            pointWalletRepository.saveAndFlush(pointWallet);
+
+            return DIAGNOSIS_REWARD_POINT;
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateRewardException(e)) {
+                return 0;
             }
             throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         } catch (DataAccessException e) {
@@ -150,7 +196,8 @@ public class PointService {
     private boolean isDuplicateRewardException(DataIntegrityViolationException e) {
         String message = extractMessage(e);
         return message.contains("uk_point_history_user_step_reward")
-                || message.contains("uk_point_history_user_mission_reward");
+                || message.contains("uk_point_history_user_mission_reward")
+                || message.contains("uk_point_history_user_reward_key");
     }
 
     private boolean isPointWalletDuplicateException(DataIntegrityViolationException e) {

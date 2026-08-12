@@ -2,11 +2,10 @@ package com.likelion.staycare.domain.diagnosis.service;
 
 import com.likelion.staycare.domain.diagnosis.dto.DiagnosisRequest;
 import com.likelion.staycare.domain.diagnosis.dto.DiagnosisResponse;
-import com.likelion.staycare.domain.diagnosis.entity.CareMotivation;
 import com.likelion.staycare.domain.diagnosis.entity.Diagnosis;
 import com.likelion.staycare.domain.diagnosis.exception.DiagnosisErrorCode;
 import com.likelion.staycare.domain.diagnosis.repository.DiagnosisRepository;
-import com.likelion.staycare.domain.diagnosis.entity.SkinType;
+import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.user.entity.User;
 import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
@@ -24,6 +23,7 @@ public class DiagnosisService {
 
     private final UserRepository userRepository;
     private final DiagnosisRepository diagnosisRepository;
+    private final PointService pointService;
 
     /**
      * 자가진단 실행 (토큰 유저의 결과로 저장)
@@ -43,6 +43,7 @@ public class DiagnosisService {
                 .checkCycle(request.checkCycle())
                 .careMotivation(request.careMotivation())
                 .build();
+
         diagnosisRepository.save(diagnosis);
 
         // User 프로필에도 반영
@@ -56,42 +57,8 @@ public class DiagnosisService {
                 request.careMotivation()
         );
 
-        return DiagnosisResponse.from(diagnosis);
-    }
-
-    /**
-     * 로그인 유저의 최근 진단 결과
-     */
-    public DiagnosisResponse getLatest(Long userId) {
-        Diagnosis diagnosis = diagnosisRepository
-                .findTopByUserIdOrderByDiagnosedAtDesc(userId)
-                .orElseThrow(() ->
-                        new CustomException(DiagnosisErrorCode.DIAGNOSIS_NOT_FOUND));
-        return DiagnosisResponse.from(diagnosis);
-    }
-
-    /**
-     * 로그인 유저의 진단 이력 전체
-     */
-    public List<DiagnosisResponse> getMyHistory(Long userId) {
-        return diagnosisRepository
-                .findAllByUserIdOrderByDiagnosedAtDesc(userId)
-                .stream()
-                .map(DiagnosisResponse::from)
-                .toList();
-    }
-
-    /**
-     * 특정 진단 상세 조회 (본인 것만)
-     */
-    public DiagnosisResponse getDiagnosisById(Long userId, Long diagnosisId) {
-        Diagnosis diagnosis = diagnosisRepository.findById(diagnosisId)
-                .orElseThrow(() ->
-                        new CustomException(DiagnosisErrorCode.DIAGNOSIS_NOT_FOUND));
-
-        if (!diagnosis.getUser().getId().equals(userId)) {
-            throw new CustomException(DiagnosisErrorCode.FORBIDDEN_DIAGNOSIS);
-        }
+        // 진단 완료 1회 보상
+        pointService.rewardDiagnosisComplete(user);
 
         return DiagnosisResponse.from(diagnosis);
     }
