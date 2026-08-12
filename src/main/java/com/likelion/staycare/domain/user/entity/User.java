@@ -37,11 +37,10 @@ public class User {
 
     // === 자가진단으로만 갱신되는 필드 ===
     @Enumerated(EnumType.STRING)
-    private  Gender gender;
+    private Gender gender;
 
     @Column
     private Integer age;
-
 
     @Enumerated(EnumType.STRING)
     private SkinType skinType;
@@ -51,7 +50,6 @@ public class User {
 
     @Column
     private LocalTime returnHomeTime;
-
 
     @Enumerated(EnumType.STRING)
     private CheckCycle checkCycle;
@@ -71,6 +69,12 @@ public class User {
     @Column(name = "profile_image_key")
     private String profileImageKey;
 
+    // === 포인트 관련 필드 ===
+    @Column(name = "total_point", nullable = false)
+    private Integer totalPoint;
+
+    @Column(name = "diagnosis_rewarded", nullable = false)
+    private Boolean diagnosisRewarded;
 
     @Builder
     public User(String loginId, String password, String nickname) {
@@ -78,6 +82,8 @@ public class User {
         this.password = password;
         this.nickname = nickname;
         this.notificationEnabled = true;
+        this.totalPoint = 0;
+        this.diagnosisRewarded = false;
     }
 
     // === 마이페이지 수정 메서드 ===
@@ -87,7 +93,6 @@ public class User {
 
     public void updateGoal(String goal) {
         this.goal = goal;
-
     }
 
     public void updateNotificationSetting(Boolean notificationEnabled) {
@@ -103,7 +108,6 @@ public class User {
         this.profileImageUrl = null;
         this.profileImageKey = null;
     }
-
 
     // === 자가진단 결과 반영 메서드 ===
     public void applyDiagnosisResult(
@@ -122,6 +126,22 @@ public class User {
         this.returnHomeTime = returnHomeTime;
         this.checkCycle = checkCycle;
         this.careMotivation = careMotivation;
+    }
+
+    // === 포인트 관련 메서드 ===
+    public void addPoint(int point) {
+        if (point < 0) {
+            throw new IllegalArgumentException("포인트는 0 이상이어야 합니다.");
+        }
+        this.totalPoint += point;
+    }
+
+    public void markDiagnosisRewarded() {
+        this.diagnosisRewarded = true;
+    }
+
+    public boolean hasDiagnosisRewarded() {
+        return Boolean.TRUE.equals(this.diagnosisRewarded);
     }
 
     public void markNotified(LocalDate date) {

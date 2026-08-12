@@ -19,10 +19,12 @@ public record UserResponse(
         LocalTime returnHomeTime,
         CheckCycle checkCycle,
         CareMotivation careMotivation,
-        Boolean notificationEnabled
+        Boolean notificationEnabled,
+        Integer totalPoint
+
 
 ) {
-    public static UserResponse from(User user) {
+    public static UserResponse from(User user, int totalPoint) {
         return UserResponse.builder()
                 .userId(user.getId())
                 .nickname(user.getNickname())
@@ -36,6 +38,7 @@ public record UserResponse(
                 .checkCycle(user.getCheckCycle())
                 .careMotivation(user.getCareMotivation())
                 .notificationEnabled(user.getNotificationEnabled())
+                .totalPoint(totalPoint)
                 .build();
     }
 }

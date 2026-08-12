@@ -3,18 +3,7 @@ package com.likelion.staycare.domain.point.entity;
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
 import com.likelion.staycare.domain.user.entity.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,6 +24,10 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(
                         name = "uk_point_history_user_mission_reward",
                         columnNames = {"user_id", "mission_id", "reward_type"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_point_history_user_reward_key",
+                        columnNames = {"user_id", "reward_type", "reward_key"}
                 )
         }
 )
@@ -62,6 +55,9 @@ public class PointHistory {
     @Column(name = "reward_type", nullable = false, length = 40)
     private PointRewardType rewardType;
 
+    @Column(name = "reward_key", length = 100)
+    private String rewardKey;
+
     @Column(nullable = false)
     private Integer amount;
 
@@ -75,12 +71,14 @@ public class PointHistory {
             GeneratedMission mission,
             GeneratedMissionStep step,
             PointRewardType rewardType,
+            String rewardKey,
             Integer amount
     ) {
         this.user = user;
         this.mission = mission;
         this.step = step;
         this.rewardType = rewardType;
+        this.rewardKey = rewardKey;
         this.amount = amount;
     }
 }

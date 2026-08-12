@@ -9,4 +9,10 @@ public interface PointHistoryRepository extends JpaRepository<PointHistory, Long
     boolean existsByUserIdAndStepIdAndRewardType(Long userId, Long stepId, PointRewardType rewardType);
 
     boolean existsByUserIdAndMissionIdAndRewardType(Long userId, Long missionId, PointRewardType rewardType);
+
+    boolean existsByUserIdAndRewardTypeAndRewardKey(
+            Long userId,
+            PointRewardType rewardType,
+            String rewardKey
+    );
 }
