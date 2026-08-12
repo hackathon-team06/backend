@@ -15,37 +15,23 @@ public record DiagnosisResponse(
         LocalTime returnHomeTime,
         Integer checkCycleDays,
         String careMotivationLabel,
-        String recommendation,
         int awardedPoint,
         int totalPoint
 ) {
     public static DiagnosisResponse from(Diagnosis d) {
-        return DiagnosisResponse.builder()
-                .diagnosisId(d.getId())
-                .gender(d.getGender() != null ? d.getGender().getLabel() : null)
-                .age(d.getAge())
-                .skinTypeLabel(d.getSkinType() != null ? d.getSkinType().getLabel() : null)
-                .wakeUpTime(d.getWakeUpTime())
-                .returnHomeTime(d.getReturnHomeTime())
-                .checkCycleDays(d.getCheckCycle() != null ? d.getCheckCycle().getDays() : null)
-                .careMotivationLabel(d.getCareMotivation() != null ? d.getCareMotivation().getLabel() : null)
-                .recommendation(d.getRecommendation())
-                .awardedPoint(0)
-                .totalPoint(0)
-                .build();
+        return from(d, 0, 0);
     }
 
     public static DiagnosisResponse from(Diagnosis d, int awardedPoint, int totalPoint) {
         return DiagnosisResponse.builder()
                 .diagnosisId(d.getId())
-                .gender(d.getGender() != null ? d.getGender().getLabel() : null)
+                .gender(d.getGender().getLabel())
                 .age(d.getAge())
-                .skinTypeLabel(d.getSkinType() != null ? d.getSkinType().getLabel() : null)
+                .skinTypeLabel(d.getSkinType().getLabel())
                 .wakeUpTime(d.getWakeUpTime())
                 .returnHomeTime(d.getReturnHomeTime())
-                .checkCycleDays(d.getCheckCycle() != null ? d.getCheckCycle().getDays() : null)
-                .careMotivationLabel(d.getCareMotivation() != null ? d.getCareMotivation().getLabel() : null)
-                .recommendation(d.getRecommendation())
+                .checkCycleDays(d.getCheckCycle().getDays())
+                .careMotivationLabel(d.getCareMotivation().getLabel())
                 .awardedPoint(awardedPoint)
                 .totalPoint(totalPoint)
                 .build();

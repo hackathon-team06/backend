@@ -6,4 +6,7 @@ import lombok.Builder;
 public record PointResponse(
         Integer point
 ) {
+    public Integer getPoint() {
+        return point;
+    }
 }
