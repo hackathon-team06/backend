@@ -84,6 +84,7 @@ jobs:
               -e AWS_REGION="ap-northeast-2" \
               -e AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              -e OPENWEATHER_API_KEY="${{ secrets.OPENWEATHER_API_KEY }}" \
               staycare-api:latest
 
             sleep 20
