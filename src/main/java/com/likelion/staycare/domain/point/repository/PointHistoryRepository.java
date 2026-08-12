@@ -15,4 +15,5 @@ public interface PointHistoryRepository extends JpaRepository<PointHistory, Long
             PointRewardType rewardType,
             String rewardKey
     );
+
 }

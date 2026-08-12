@@ -12,4 +12,5 @@ public interface UserMissionStepCheckRepository extends JpaRepository<UserMissio
     List<UserMissionStepCheck> findByGeneratedMissionStepGeneratedMission(GeneratedMission mission);
 
     Optional<UserMissionStepCheck> findByGeneratedMissionStepId(Long stepId);
+
 }
