@@ -14,5 +14,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByLoginId(String loginId);
 
     List<User> findAllByNotificationEnabledTrueAndReturnHomeTime(LocalTime returnHomeTime);
-
 }

@@ -1,5 +1,7 @@
 package com.likelion.staycare.domain.user.service;
 
+import com.likelion.staycare.domain.point.entity.PointWallet;
+import com.likelion.staycare.domain.point.repository.PointWalletRepository;
 import com.likelion.staycare.domain.user.dto.*;
 import com.likelion.staycare.domain.user.entity.User;
 import com.likelion.staycare.domain.user.exception.UserErrorCode;
@@ -22,6 +24,7 @@ public class UserService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final S3Uploader s3Uploader;
+    private final PointWalletRepository pointWalletRepository;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -35,8 +38,7 @@ public class UserService {
         String accessToken = jwtProvider.createAccessToken(user.getId());
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
 
-
-        return LoginResponse.of(accessToken,refreshToken, user.getId());
+        return LoginResponse.of(accessToken, refreshToken, user.getId());
     }
 
     @Transactional
@@ -45,15 +47,16 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         user.updateNickname(request.nickname());
-        return UserResponse.from(user);
+        return UserResponse.from(user, getTotalPoint(user.getId()));
     }
 
     @Transactional
     public UserResponse updateGoal(Long userId, GoalRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
         user.updateGoal(request.goal());
-        return UserResponse.from(user);
+        return UserResponse.from(user, getTotalPoint(user.getId()));
     }
 
     @Transactional
@@ -62,15 +65,14 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         user.updateNotificationSetting(request.notificationEnabled());
-
-        return UserResponse.from(user);
+        return UserResponse.from(user, getTotalPoint(user.getId()));
     }
 
-    @Transactional
     public UserResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
-        return UserResponse.from(user);
+
+        return UserResponse.from(user, getTotalPoint(userId));
     }
 
     @Transactional
@@ -88,7 +90,7 @@ public class UserService {
             S3Uploader.UploadResult uploadResult = s3Uploader.uploadProfileImage(image, userId);
             user.updateProfileImage(uploadResult.url(), uploadResult.key());
 
-            return UserResponse.from(user);
+            return UserResponse.from(user, getTotalPoint(user.getId()));
         } catch (Exception e) {
             throw new RuntimeException("프로필 이미지 업로드 실패", e);
         }
@@ -104,7 +106,13 @@ public class UserService {
         }
 
         user.removeProfileImage();
-        return UserResponse.from(user);
+        return UserResponse.from(user, getTotalPoint(user.getId()));
+    }
+
+    private int getTotalPoint(Long userId) {
+        return pointWalletRepository.findByUserId(userId)
+                .map(PointWallet::getPoint)
+                .orElse(0);
     }
 
     private void validateImage(MultipartFile image) {
@@ -122,5 +130,4 @@ public class UserService {
             throw new IllegalArgumentException("이미지는 5MB 이하만 업로드할 수 있습니다.");
         }
     }
-
 }

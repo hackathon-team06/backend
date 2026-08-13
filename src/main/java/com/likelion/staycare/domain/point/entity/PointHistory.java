@@ -35,6 +35,10 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(
                         name = "uk_point_history_user_mission_reward",
                         columnNames = {"user_id", "mission_id", "reward_type"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_point_history_user_reward_key",
+                        columnNames = {"user_id", "reward_type", "reward_key"}
                 )
         }
 )
@@ -62,6 +66,9 @@ public class PointHistory {
     @Column(name = "reward_type", nullable = false, length = 40)
     private PointRewardType rewardType;
 
+    @Column(name = "reward_key", length = 100)
+    private String rewardKey;
+
     @Column(nullable = false)
     private Integer amount;
 
@@ -75,12 +82,14 @@ public class PointHistory {
             GeneratedMission mission,
             GeneratedMissionStep step,
             PointRewardType rewardType,
+            String rewardKey,
             Integer amount
     ) {
         this.user = user;
         this.mission = mission;
         this.step = step;
         this.rewardType = rewardType;
+        this.rewardKey = rewardKey;
         this.amount = amount;
     }
 }
