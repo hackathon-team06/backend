@@ -1,8 +1,8 @@
 package com.likelion.staycare.domain.shopping.controller;
 
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
+import com.likelion.staycare.domain.shopping.dto.response.PointPriceResponse;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
-import com.likelion.staycare.domain.shopping.entity.ProductCategory;
 import com.likelion.staycare.domain.shopping.service.ShoppingService;
 import com.likelion.staycare.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,7 +35,7 @@ public class ShoppingController {
     @Operation(summary = "제휴 상품 등록", description = "Swagger에서 제휴 상품 정보를 직접 입력하여 등록합니다.")
     @PostMapping("/products")
     public ResponseEntity<ProductResponse> createProduct(
-            @Valid @org.springframework.web.bind.annotation.RequestBody ProductCreateRequest request
+            @Valid @RequestBody ProductCreateRequest request
     ) {
         return ResponseEntity.ok(shoppingService.createProduct(request));
     }
@@ -42,23 +43,42 @@ public class ShoppingController {
     @Operation(
             summary = "상품 조회",
             description = """
-                    피부 타입과 카테고리 기준으로 제휴 상품을 조회합니다.
-                    skinType 미입력: 현재 로그인 사용자의 피부 타입 사용
-                    category 미입력: SKIN_TONER 사용
+                    피부타입과 카테고리에 맞는 상품 목록을 조회합니다.
+
+                    각 상품 응답에는 현재 로그인 사용자의 보유 포인트를
+                    1P=1원 기준으로 현재 판매가(price)에 전부 적용했을 때의
+                    예상 가격이 포함됩니다.
+
+                    포인트는 실제로 차감되지 않습니다.
                     """
     )
     @GetMapping("/products")
     public ResponseEntity<List<ProductResponse>> getProducts(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(
-                    description = "피부 타입 필터. 영문 enum 또는 한글 라벨을 모두 지원합니다.",
-                    schema = @Schema(allowableValues = {
-                            "DRY", "OILY", "COMBINATION", "DEHYDRATED", "NORMAL",
-                            "건성", "지성", "복합성", "수부지", "중성"
-                    })
+                    description = "피부 타입 필터. 영문 enum 또는 한글명을 사용할 수 있습니다.",
+                    schema = @Schema(
+                            type = "string",
+                            example = "DEHYDRATED",
+                            allowableValues = {
+                                    "DRY", "OILY", "COMBINATION", "DEHYDRATED", "NORMAL",
+                                    "건성", "지성", "복합성", "수부지", "중성"
+                            }
+                    )
             )
             @RequestParam(required = false) String skinType,
-            @RequestParam(required = false) ProductCategory category
+            @Parameter(
+                    description = "상품 카테고리. 영문 enum 또는 한글명을 사용할 수 있습니다.",
+                    schema = @Schema(
+                            type = "string",
+                            example = "SKIN_TONER",
+                            allowableValues = {
+                                    "SKIN_TONER", "ESSENCE_AMPOULE", "CREAM", "MASK_PACK", "SUPPLEMENT",
+                                    "스킨/토너", "에센스/앰플", "크림", "마스크팩", "영양제"
+                            }
+                    )
+            )
+            @RequestParam(required = false) String category
     ) {
         return ResponseEntity.ok(
                 shoppingService.getProducts(userDetails.getUserId(), skinType, category)
@@ -98,10 +118,46 @@ public class ShoppingController {
     @GetMapping("/likes")
     public ResponseEntity<List<ProductResponse>> getLikedProducts(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) ProductCategory category
+            @Parameter(
+                    description = "찜 목록 카테고리 필터. 영문 enum 또는 한글명을 사용할 수 있습니다.",
+                    schema = @Schema(
+                            type = "string",
+                            example = "CREAM",
+                            allowableValues = {
+                                    "SKIN_TONER", "ESSENCE_AMPOULE", "CREAM", "MASK_PACK", "SUPPLEMENT",
+                                    "스킨/토너", "에센스/앰플", "크림", "마스크팩", "영양제"
+                            }
+                    )
+            )
+            @RequestParam(required = false) String category
     ) {
         return ResponseEntity.ok(
                 shoppingService.getLikedProducts(userDetails.getUserId(), category)
+        );
+    }
+
+    @Operation(
+            summary = "포인트 적용 예상 가격 조회",
+            description = """
+                    현재 상품의 제휴사 할인 판매가(price)에
+                    사용자의 포인트를 1P = 1원 기준으로 추가 적용했을 때의
+                    예상 가격을 계산합니다.
+
+                    실제 결제 및 포인트 차감은 수행하지 않습니다.
+                    """
+    )
+    @GetMapping("/products/{productId}/point-price")
+    public ResponseEntity<PointPriceResponse> getPointAppliedPrice(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long productId,
+            @Parameter(
+                    description = "적용해 볼 포인트 수",
+                    schema = @Schema(type = "integer", example = "1000", minimum = "0")
+            )
+            @RequestParam Integer usePoints
+    ) {
+        return ResponseEntity.ok(
+                shoppingService.getPointAppliedPrice(userDetails.getUserId(), productId, usePoints)
         );
     }
 }
