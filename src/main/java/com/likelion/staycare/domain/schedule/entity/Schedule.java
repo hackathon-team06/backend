@@ -18,7 +18,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,13 +28,7 @@ import java.time.LocalTime;
 
 @Entity
 @Getter
-@Table(
-        name = "schedules",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_schedule_user_date",
-                columnNames = {"user_id", "schedule_date"}
-        )
-)
+@Table(name = "schedules")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AttributeOverrides({
         @AttributeOverride(name = "createdAt", column = @Column(name = "created_at")),
@@ -97,6 +90,23 @@ public class Schedule extends BaseTimeEntity {
     }
 
     public void updateSchedule(
+            String title,
+            LocalDate scheduleDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            Companion companion,
+            ScheduleCategory category
+    ) {
+        this.title = title;
+        this.scheduleDate = scheduleDate;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.companion = companion;
+        this.category = category;
+        this.status = ScheduleStatus.ACTIVE;
+    }
+
+    public void updateFromGoogle(
             String title,
             LocalDate scheduleDate,
             LocalTime startTime,
