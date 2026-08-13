@@ -1,7 +1,9 @@
 package com.likelion.staycare.domain.shopping.service;
 
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
+import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
+import com.likelion.staycare.domain.shopping.dto.response.PointPriceResponse;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
 import com.likelion.staycare.domain.shopping.entity.Product;
 import com.likelion.staycare.domain.shopping.entity.ProductCategory;
@@ -30,6 +32,7 @@ public class ShoppingService {
     private final ProductRepository productRepository;
     private final ProductLikeRepository productLikeRepository;
     private final UserRepository userRepository;
+    private final PointService pointService;
 
     @Transactional
     public ProductResponse createProduct(ProductCreateRequest request) {
@@ -47,13 +50,14 @@ public class ShoppingService {
                         .build()
         );
 
-        return ProductResponse.from(product, false);
+        return ProductResponse.from(product, false, 0);
     }
 
     public List<ProductResponse> getProducts(Long userId, String skinType, String category) {
         User user = getUser(userId);
         SkinType resolvedSkinType = resolveSkinType(user, skinType);
         ProductCategory resolvedCategory = resolveCategory(category, DEFAULT_CATEGORY);
+        int availablePoints = getAvailablePoints(userId);
 
         List<Product> products = productRepository.findActiveProductsBySkinTypeAndCategory(
                 resolvedSkinType,
@@ -62,8 +66,36 @@ public class ShoppingService {
         Set<Long> likedProductIds = productLikeRepository.findLikedProductIdsByUserId(userId);
 
         return products.stream()
-                .map(product -> ProductResponse.from(product, likedProductIds.contains(product.getId())))
+                .map(product -> ProductResponse.from(
+                        product,
+                        likedProductIds.contains(product.getId()),
+                        availablePoints
+                ))
                 .toList();
+    }
+
+    public PointPriceResponse getPointAppliedPrice(Long userId, Long productId, Integer usePoints) {
+        if (usePoints == null || usePoints < 0) {
+            throw new CustomException(ShoppingErrorCode.INVALID_USE_POINTS);
+        }
+
+        Product product = productRepository.findByIdAndIsActiveTrue(productId)
+                .orElseThrow(() -> new CustomException(ShoppingErrorCode.PRODUCT_NOT_FOUND));
+
+        int availablePoints = getAvailablePoints(userId);
+        int usedPoints = Math.min(usePoints, Math.min(availablePoints, product.getPrice()));
+        int pointAppliedPrice = product.getPrice() - usedPoints;
+
+        return PointPriceResponse.builder()
+                .productId(product.getId())
+                .originalPrice(product.getOriginalPrice())
+                .price(product.getPrice())
+                .availablePoints(availablePoints)
+                .requestedPoints(usePoints)
+                .usedPoints(usedPoints)
+                .pointDiscountAmount(usedPoints)
+                .pointAppliedPrice(pointAppliedPrice)
+                .build();
     }
 
     @Transactional
@@ -107,19 +139,24 @@ public class ShoppingService {
     public List<ProductResponse> getLikedProducts(Long userId, String category) {
         getUser(userId);
         ProductCategory resolvedCategory = resolveCategory(category, null);
+        int availablePoints = getAvailablePoints(userId);
 
         List<Product> likedProducts = resolvedCategory == null
                 ? productLikeRepository.findLikedProductsByUserId(userId)
                 : productLikeRepository.findLikedProductsByUserIdAndCategory(userId, resolvedCategory);
 
         return likedProducts.stream()
-                .map(product -> ProductResponse.from(product, true))
+                .map(product -> ProductResponse.from(product, true, availablePoints))
                 .toList();
     }
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    private int getAvailablePoints(Long userId) {
+        return pointService.getMyPoint(userId).getPoint();
     }
 
     private SkinType resolveSkinType(User user, String skinType) {

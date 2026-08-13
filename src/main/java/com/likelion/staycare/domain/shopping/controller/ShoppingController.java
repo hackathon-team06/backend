@@ -1,6 +1,7 @@
 package com.likelion.staycare.domain.shopping.controller;
 
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
+import com.likelion.staycare.domain.shopping.dto.response.PointPriceResponse;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
 import com.likelion.staycare.domain.shopping.service.ShoppingService;
 import com.likelion.staycare.global.security.CustomUserDetails;
@@ -42,9 +43,13 @@ public class ShoppingController {
     @Operation(
             summary = "상품 조회",
             description = """
-                    피부 타입과 카테고리 기준으로 제휴 상품을 조회합니다.
-                    skinType 미입력 시 현재 로그인 사용자의 피부 타입을 사용합니다.
-                    category 미입력 시 SKIN_TONER를 사용합니다.
+                    피부타입과 카테고리에 맞는 상품 목록을 조회합니다.
+
+                    각 상품 응답에는 현재 로그인 사용자의 보유 포인트를
+                    1P=1원 기준으로 현재 판매가(price)에 전부 적용했을 때의
+                    예상 가격이 포함됩니다.
+
+                    포인트는 실제로 차감되지 않습니다.
                     """
     )
     @GetMapping("/products")
@@ -128,6 +133,31 @@ public class ShoppingController {
     ) {
         return ResponseEntity.ok(
                 shoppingService.getLikedProducts(userDetails.getUserId(), category)
+        );
+    }
+
+    @Operation(
+            summary = "포인트 적용 예상 가격 조회",
+            description = """
+                    현재 상품의 제휴사 할인 판매가(price)에
+                    사용자의 포인트를 1P = 1원 기준으로 추가 적용했을 때의
+                    예상 가격을 계산합니다.
+
+                    실제 결제 및 포인트 차감은 수행하지 않습니다.
+                    """
+    )
+    @GetMapping("/products/{productId}/point-price")
+    public ResponseEntity<PointPriceResponse> getPointAppliedPrice(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long productId,
+            @Parameter(
+                    description = "적용해 볼 포인트 수",
+                    schema = @Schema(type = "integer", example = "1000", minimum = "0")
+            )
+            @RequestParam Integer usePoints
+    ) {
+        return ResponseEntity.ok(
+                shoppingService.getPointAppliedPrice(userDetails.getUserId(), productId, usePoints)
         );
     }
 }
