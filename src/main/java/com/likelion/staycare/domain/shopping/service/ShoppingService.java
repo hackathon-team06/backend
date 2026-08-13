@@ -50,10 +50,10 @@ public class ShoppingService {
         return ProductResponse.from(product, false);
     }
 
-    public List<ProductResponse> getProducts(Long userId, String skinType, ProductCategory category) {
+    public List<ProductResponse> getProducts(Long userId, String skinType, String category) {
         User user = getUser(userId);
         SkinType resolvedSkinType = resolveSkinType(user, skinType);
-        ProductCategory resolvedCategory = category == null ? DEFAULT_CATEGORY : category;
+        ProductCategory resolvedCategory = resolveCategory(category, DEFAULT_CATEGORY);
 
         List<Product> products = productRepository.findActiveProductsBySkinTypeAndCategory(
                 resolvedSkinType,
@@ -104,12 +104,13 @@ public class ShoppingService {
         product.deactivate();
     }
 
-    public List<ProductResponse> getLikedProducts(Long userId, ProductCategory category) {
+    public List<ProductResponse> getLikedProducts(Long userId, String category) {
         getUser(userId);
+        ProductCategory resolvedCategory = resolveCategory(category, null);
 
-        List<Product> likedProducts = category == null
+        List<Product> likedProducts = resolvedCategory == null
                 ? productLikeRepository.findLikedProductsByUserId(userId)
-                : productLikeRepository.findLikedProductsByUserIdAndCategory(userId, category);
+                : productLikeRepository.findLikedProductsByUserIdAndCategory(userId, resolvedCategory);
 
         return likedProducts.stream()
                 .map(product -> ProductResponse.from(product, true))
@@ -135,5 +136,17 @@ public class ShoppingService {
         }
 
         return user.getSkinType();
+    }
+
+    private ProductCategory resolveCategory(String category, ProductCategory defaultCategory) {
+        if (category == null || category.isBlank()) {
+            return defaultCategory;
+        }
+
+        try {
+            return ProductCategory.from(category);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ShoppingErrorCode.INVALID_PRODUCT_CATEGORY);
+        }
     }
 }
