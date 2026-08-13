@@ -6,6 +6,7 @@ import com.likelion.staycare.domain.mission.dto.openai.OpenAiResponsesRequest;
 import com.likelion.staycare.domain.mission.dto.openai.OpenAiResponsesResponse;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
+import com.likelion.staycare.domain.mission.entity.enums.MorningMissionCategory;
 import com.likelion.staycare.domain.mission.exception.OpenAiErrorCode;
 import com.likelion.staycare.domain.mission.exception.OpenAiException;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,7 @@ public class OpenAiService {
             String skinType,
             String goal,
             String checkCycle,
-            List<String> categories,
+            List<MorningMissionCategory> categories,
             List<String> existingRoutines,
             int recommendationCount
     ) {
@@ -77,7 +78,7 @@ public class OpenAiService {
         OpenAiResponsesResponse response = requestStructuredResponse(
                 prompt,
                 "mission_response",
-                "Personalized skincare mission response",
+                "Personalized evening wellness mission response",
                 buildMissionJsonSchema()
         );
         MissionPayload payload = parseMissionPayload(response);
@@ -87,7 +88,6 @@ public class OpenAiService {
                 .description(payload.description())
                 .stepIds(List.of())
                 .steps(payload.steps())
-                .tip(payload.tip())
                 .build();
     }
 
@@ -194,7 +194,6 @@ public class OpenAiService {
             if (payload == null
                     || isBlank(payload.title())
                     || isBlank(payload.description())
-                    || isBlank(payload.tip())
                     || payload.steps() == null
                     || payload.steps().size() != 3
                     || payload.steps().stream().anyMatch(this::isBlank)) {
@@ -247,21 +246,21 @@ public class OpenAiService {
 
     private String buildSystemPrompt() {
         return """
-                너는 피부관리 전문 AI이다.
+                당신은 개인 맞춤 스킨케어 + 생활습관 + 웰니스 루틴 코치입니다.
 
-                사용자의 피부 타입, 피부 상태, 이전 미션 수행 여부, 목표(goal), 관리 주기(checkCycle), 오늘 일정까지 고려해
-                현실적이고 실천 가능한 피부관리 미션 또는 아침 루틴 후보를 생성한다.
+                사용자의 피부 타입, 진단 결과, 루틴 수행 여부, 귀가 후 상태, 일정 맥락을 함께 고려해
+                오늘 실제로 수행 가능한 피부관리 및 웰니스 미션을 추천합니다.
 
-                반드시 다음 규칙을 따른다.
-                - 한국어로만 작성한다.
-                - JSON만 출력한다.
-                - Markdown, 코드블록, 설명 문장을 출력하지 않는다.
-                - 화장품 추천을 하지 않는다.
-                - 의료행위, 치료행위, 의학적 진단을 하지 않는다.
-                - 일정 자체를 수행하라는 미션은 생성하지 않는다.
-                - 피부관리 step은 반드시 정확히 3개만 생성한다.
-                - 아침 루틴 추천은 짧고 반복 가능한 생활 루틴 중심으로 추천한다.
-                - 이미 유지 중인 루틴과 중복되는 추천은 피한다.
+                반드시 다음 규칙을 지킵니다.
+                - 한국어로만 작성합니다.
+                - JSON만 출력합니다.
+                - Markdown, 코드블록, 설명 문장은 출력하지 않습니다.
+                - 의료 진단, 질병 치료 단정, 처방 제안은 하지 않습니다.
+                - 일반적인 피부관리, 생활습관, 웰니스 수준의 실행 가능한 행동만 제안합니다.
+                - 일정 자체를 수행하라는 미션은 생성하지 않습니다.
+                - 저녁 미션 step은 정확히 3개만 생성합니다.
+                - 아침 루틴 추천은 매일 반복 가능한 고정 루틴 위주로 추천합니다.
+                - 이미 유지 중인 루틴과 중복되는 추천은 피합니다.
                 """;
     }
 
@@ -270,32 +269,36 @@ public class OpenAiService {
             String skinType,
             String goal,
             String checkCycle,
-            List<String> categories,
+            List<MorningMissionCategory> categories,
             List<String> existingRoutines,
             int recommendationCount
     ) {
+        String categoryText = categories == null || categories.isEmpty()
+                ? "없음"
+                : categories.stream().map(MorningMissionCategory::getLabel).collect(Collectors.joining(", "));
+
         return """
                 [고정 아침 루틴 추천]
 
-                - 나이 : %s
-                - 피부 타입 : %s
-                - 목표(goal) : %s
-                - 관리 주기(checkCycle) : %s
-                - 원하는 카테고리 : %s
-                - 현재 유지 중인 루틴 : %s
-                - 필요한 추천 개수 : %d개
+                - 나이: %s
+                - 피부 타입: %s
+                - 목표(goal): %s
+                - 관리 주기(checkCycle): %s
+                - 원하는 카테고리: %s
+                - 현재 유지 중인 루틴: %s
+                - 필요한 추천 개수: %d개
 
-                반복 가능한 고정 아침 루틴 후보를 추천한다.
-                피부관리와 위생 관리 중심의 짧은 루틴만 추천한다.
-                이미 유지 중인 루틴과 중복되는 표현은 피한다.
-                recommendations 배열에 정확히 %d개의 문자열만 넣는다.
-                각 항목은 짧고 명확한 한 문장으로 작성한다.
+                매일 반복 가능한 고정 아침 루틴 후보를 추천합니다.
+                피부관리뿐 아니라 위생, 수분, 식습관, 생활습관 수준의 아침 루틴도 포함할 수 있습니다.
+                현재 유지 중인 루틴과 중복되는 표현은 피합니다.
+                recommendations 배열에는 정확히 %d개의 문자열만 넣습니다.
+                각 항목은 짧고 바로 실천 가능한 문장으로 작성합니다.
                 """.formatted(
                 defaultValue(age),
                 defaultValue(skinType),
                 defaultValue(goal),
                 defaultValue(checkCycle),
-                categories == null || categories.isEmpty() ? "없음" : String.join(", ", categories),
+                categoryText,
                 existingRoutines == null || existingRoutines.isEmpty() ? "없음" : String.join(", ", existingRoutines),
                 recommendationCount,
                 recommendationCount
@@ -304,29 +307,29 @@ public class OpenAiService {
 
     private String buildEveningPrompt(EveningMissionRequest request) {
         return """
-                [저녁 미션]
+                [저녁 미션 생성]
 
-                - 나이 : %s
-                - 피부 타입 : %s
-                - 목표(goal) : %s
-                - 관리 주기(checkCycle) : %s
-                - 오늘 일정 : %s
-                - 오늘 피부 상태 : %s
-                - 오늘 아침 수행 여부 : %s
-                - 피부 타입 참고 : %s
+                - 나이: %s
+                - 피부 타입: %s
+                - 목표(goal): %s
+                - 관리 주기(checkCycle): %s
+                - 오늘 일정: %s
+                - 귀가 후 상태: %s
+                - 오늘 아침 미션 상태: %s
+                - 피부 타입 참고: %s
 
-                사용자의 오늘 아침 수행 여부와 오늘 일정을 함께 고려해서 저녁 피부관리 미션을 생성한다.
-                피부관리 미션(step)은 반드시 정확히 3개만 생성한다.
-                steps 배열에는 반드시 3개의 문자열만 포함한다.
-                추가 step을 생성하지 않는다.
-                일정 관련 미션은 생성하지 않는다.
+                사용자가 오늘 저녁에 실제로 할 수 있는 피부관리/웰니스 미션을 추천합니다.
+                아침에 완료한 루틴은 과도하게 반복하지 말고, 미완료 항목이나 오늘 컨디션에 맞춰 보완합니다.
+                오늘 일정 맥락이 있다면 외부활동, 이동, 피로, 건조, 자극 가능성을 자연스럽게 고려합니다.
+                steps 배열에는 정확히 3개의 문자열만 넣습니다.
+                일정 수행 자체를 step으로 만들지 않습니다.
                 """.formatted(
                 defaultValue(request.age()),
                 defaultValue(request.skinType()),
                 defaultValue(request.goal()),
                 defaultValue(request.checkCycle()),
                 defaultValue(request.todaySchedule()),
-                defaultValue(request.todaySkinCondition()),
+                defaultValue(request.todayConditions()),
                 defaultValue(request.morningMissionStatus()),
                 describeSkinType(request.skinType())
         );
@@ -336,7 +339,7 @@ public class OpenAiService {
         return Map.of(
                 "type", "object",
                 "additionalProperties", false,
-                "required", List.of("title", "description", "steps", "tip"),
+                "required", List.of("title", "description", "steps"),
                 "properties", Map.of(
                         "title", Map.of("type", "string"),
                         "description", Map.of("type", "string"),
@@ -345,8 +348,7 @@ public class OpenAiService {
                                 "minItems", 3,
                                 "maxItems", 3,
                                 "items", Map.of("type", "string")
-                        ),
-                        "tip", Map.of("type", "string")
+                        )
                 )
         );
     }
@@ -393,8 +395,7 @@ public class OpenAiService {
     private record MissionPayload(
             String title,
             String description,
-            List<String> steps,
-            String tip
+            List<String> steps
     ) {
     }
 
