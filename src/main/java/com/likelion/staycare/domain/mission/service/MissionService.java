@@ -3,28 +3,38 @@ package com.likelion.staycare.domain.mission.service;
 import com.likelion.staycare.domain.diagnosis.entity.CheckCycle;
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
-import com.likelion.staycare.domain.mission.dto.request.MorningMissionRequest;
+import com.likelion.staycare.domain.mission.dto.request.MorningRoutineRecommendationRequest;
+import com.likelion.staycare.domain.mission.dto.request.MorningRoutineSaveRequest;
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionOptionItemResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionOptionsResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionStepDetailResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningMissionResponse;
+import com.likelion.staycare.domain.mission.dto.response.MorningRoutineItemResponse;
+import com.likelion.staycare.domain.mission.dto.response.MorningRoutineRecommendationResponse;
+import com.likelion.staycare.domain.mission.dto.response.MorningRoutineResponse;
 import com.likelion.staycare.domain.mission.dto.response.TodayMissionResponse;
 import com.likelion.staycare.domain.mission.entity.DailySkinCheck;
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
+import com.likelion.staycare.domain.mission.entity.MorningRoutine;
+import com.likelion.staycare.domain.mission.entity.MorningRoutineItem;
 import com.likelion.staycare.domain.mission.entity.UserMissionStepCheck;
+import com.likelion.staycare.domain.mission.entity.enums.EveningCondition;
 import com.likelion.staycare.domain.mission.entity.enums.MissionStatus;
 import com.likelion.staycare.domain.mission.entity.enums.MissionTime;
+import com.likelion.staycare.domain.mission.entity.enums.MorningMissionCategory;
 import com.likelion.staycare.domain.mission.entity.enums.SkinCondition;
 import com.likelion.staycare.domain.mission.exception.MissionErrorCode;
 import com.likelion.staycare.domain.mission.repository.DailySkinCheckRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionRepository;
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionStepRepository;
+import com.likelion.staycare.domain.mission.repository.MorningRoutineItemRepository;
+import com.likelion.staycare.domain.mission.repository.MorningRoutineRepository;
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
 import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
-import com.likelion.staycare.domain.schedule.entity.enums.Companion;
-import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -37,11 +47,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -51,7 +64,11 @@ import java.util.stream.Collectors;
 public class MissionService {
 
     private static final String DEFAULT_VALUE = "없음";
-    private static final String PROMPT_VERSION = "v1";
+    private static final String EMPTY_TIP = "";
+    private static final String MORNING_TITLE = "오늘 아침 루틴";
+    private static final String MORNING_DESCRIPTION = "사용자가 선택한 고정 아침 루틴입니다.";
+    private static final String EVENING_FALLBACK_TITLE = "오늘 저녁 케어 미션";
+    private static final String PROMPT_VERSION = "v2";
     private static final LocalTime MORNING_END_TIME = LocalTime.NOON;
     private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
@@ -60,71 +77,130 @@ public class MissionService {
     private final GeneratedMissionRepository generatedMissionRepository;
     private final GeneratedMissionStepRepository generatedMissionStepRepository;
     private final UserMissionStepCheckRepository userMissionStepCheckRepository;
+    private final MorningRoutineRepository morningRoutineRepository;
+    private final MorningRoutineItemRepository morningRoutineItemRepository;
     private final ScheduleRepository scheduleRepository;
     private final OpenAiService openAiService;
     private final PointService pointService;
+
+    public MissionOptionsResponse getMissionOptions() {
+        return MissionOptionsResponse.builder()
+                .morningCategories(
+                        List.of(MorningMissionCategory.values()).stream()
+                                .map(category -> MissionOptionItemResponse.builder()
+                                        .code(category.name())
+                                        .label(category.getLabel())
+                                        .build())
+                                .toList()
+                )
+                .eveningConditions(
+                        List.of(EveningCondition.values()).stream()
+                                .map(condition -> MissionOptionItemResponse.builder()
+                                        .code(condition.name())
+                                        .label(condition.getLabel())
+                                        .build())
+                                .toList()
+                )
+                .build();
+    }
+
+    public MorningRoutineRecommendationResponse recommendMorningRoutine(
+            Long userId,
+            MorningRoutineRecommendationRequest request
+    ) {
+        validateMorningCategoryCount(request.categories());
+
+        User user = getUser(userId);
+        List<String> existingRoutines = morningRoutineRepository.findByUserId(userId)
+                .map(morningRoutineItemRepository::findByMorningRoutineOrderByItemOrderAsc)
+                .orElse(List.of())
+                .stream()
+                .map(MorningRoutineItem::getContent)
+                .toList();
+
+        int recommendationCount = existingRoutines.isEmpty() ? 6 : 4;
+        List<String> recommendations = openAiService.recommendMorningRoutine(
+                getAge(user.getAge()),
+                getSkinType(user.getSkinType()),
+                getGoal(user.getGoal()),
+                getCheckCycle(user.getCheckCycle()),
+                request.categories(),
+                existingRoutines,
+                recommendationCount
+        );
+
+        return MorningRoutineRecommendationResponse.builder()
+                .recommendations(recommendations)
+                .build();
+    }
+
+    @Transactional
+    public MorningRoutineResponse saveMorningRoutine(Long userId, MorningRoutineSaveRequest request) {
+        if (request.items() == null || request.items().size() != 3) {
+            throw new CustomException(MissionErrorCode.INVALID_MORNING_ROUTINE_SIZE);
+        }
+
+        User user = getUser(userId);
+        MorningRoutine routine = morningRoutineRepository.findByUserId(userId)
+                .orElseGet(() -> morningRoutineRepository.save(MorningRoutine.builder().user(user).build()));
+
+        morningRoutineItemRepository.deleteByMorningRoutine(routine);
+
+        List<MorningRoutineItem> items = new ArrayList<>();
+        for (int index = 0; index < request.items().size(); index++) {
+            var itemRequest = request.items().get(index);
+            items.add(MorningRoutineItem.builder()
+                    .morningRoutine(routine)
+                    .content(itemRequest.content())
+                    .category(itemRequest.category() == null ? null : itemRequest.category().getLabel())
+                    .source(itemRequest.source())
+                    .itemOrder(index + 1)
+                    .build());
+        }
+
+        List<MorningRoutineItem> savedItems = morningRoutineItemRepository.saveAll(items);
+        return toMorningRoutineResponse(routine, savedItems);
+    }
+
+    public MorningRoutineResponse getMorningRoutine(Long userId) {
+        MorningRoutine routine = morningRoutineRepository.findByUserId(userId)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MORNING_ROUTINE_NOT_FOUND));
+
+        return toMorningRoutineResponse(
+                routine,
+                morningRoutineItemRepository.findByMorningRoutineOrderByItemOrderAsc(routine)
+        );
+    }
+
+    @Transactional
+    public MorningRoutineResponse deleteMorningRoutineItem(Long userId, Long itemId) {
+        MorningRoutineItem item = morningRoutineItemRepository.findById(itemId)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MORNING_ROUTINE_ITEM_NOT_FOUND));
+
+        if (!item.getMorningRoutine().getUser().getId().equals(userId)) {
+            throw new CustomException(MissionErrorCode.FORBIDDEN_MISSION);
+        }
+
+        MorningRoutine routine = item.getMorningRoutine();
+        morningRoutineItemRepository.delete(item);
+
+        return toMorningRoutineResponse(
+                routine,
+                morningRoutineItemRepository.findByMorningRoutineOrderByItemOrderAsc(routine)
+        );
+    }
 
     @Transactional
     public MorningMissionResponse generateMorningMission(Long userId) {
         User user = getUser(userId);
         LocalDate today = getCurrentDate();
 
-        GeneratedMission existingMission = generatedMissionRepository
-                .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
-                .orElse(null);
-
-        if (existingMission != null) {
-            return toMorningMissionResponse(existingMission);
-        }
-
-        validateMorningMissionTime();
-
-        LocalDate yesterday = today.minusDays(1);
-        GeneratedMission previousEveningMission = generatedMissionRepository
-                .findByUserAndMissionDateAndMissionTime(user, yesterday, MissionTime.EVENING)
-                .orElse(null);
-        List<UserMissionStepCheck> previousChecks = previousEveningMission == null
-                ? List.of()
-                : userMissionStepCheckRepository.findByGeneratedMissionStepGeneratedMission(previousEveningMission);
-        DailySkinCheck previousSkinCheck = dailySkinCheckRepository
-                .findByUserAndCheckedDate(user, yesterday)
-                .orElse(null);
-
-        MorningMissionRequest request = new MorningMissionRequest(
-                getAge(user.getAge()),
-                getSkinType(user.getSkinType()),
-                getGoal(user.getGoal()),
-                getCheckCycle(user.getCheckCycle()),
-                getTodayScheduleContext(userId, today),
-                previousEveningMission == null ? DEFAULT_VALUE : previousEveningMission.getTitle(),
-                buildPreviousMissionResult(previousChecks),
-                previousSkinCheck == null ? DEFAULT_VALUE : previousSkinCheck.getSkinCondition().name()
-        );
-
-        MorningMissionResponse response = openAiService.generateMorningMission(request);
-        List<String> steps = buildMissionStepsWithSchedule(userId, today, response.steps());
-        GeneratedMission savedMission = saveGeneratedMission(
-                user,
-                null,
-                response.title(),
-                response.description(),
-                response.tip(),
-                today,
-                MissionTime.MORNING
-        );
-        List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
-
-        return MorningMissionResponse.builder()
-                .title(response.title())
-                .description(response.description())
-                .stepIds(extractStepIds(savedSteps))
-                .steps(steps)
-                .tip(response.tip())
-                .build();
+        GeneratedMission mission = getOrCreateMorningMission(user, today, false);
+        return toMorningMissionResponse(mission);
     }
 
     @Transactional
-    public EveningMissionResponse generateEveningMission(Long userId, SkinCondition skinCondition) {
+    public EveningMissionResponse generateEveningMission(Long userId, Set<EveningCondition> conditions) {
         User user = getUser(userId);
         LocalDate today = getCurrentDate();
 
@@ -137,12 +213,17 @@ public class MissionService {
         }
 
         validateEveningMissionTime();
+        GeneratedMission morningMission = getOrCreateMorningMission(user, today, true);
 
         DailySkinCheck dailySkinCheck = dailySkinCheckRepository.findByUserAndCheckedDate(user, today)
+                .map(saved -> {
+                    saved.updateSkinCondition(resolveRepresentativeSkinCondition(conditions));
+                    return saved;
+                })
                 .orElseGet(() -> dailySkinCheckRepository.save(
                         DailySkinCheck.builder()
                                 .user(user)
-                                .skinCondition(skinCondition)
+                                .skinCondition(resolveRepresentativeSkinCondition(conditions))
                                 .checkedDate(today)
                                 .build()
                 ));
@@ -153,31 +234,40 @@ public class MissionService {
                 getGoal(user.getGoal()),
                 getCheckCycle(user.getCheckCycle()),
                 getTodayScheduleContext(userId, today),
-                dailySkinCheck.getSkinCondition().name()
+                joinEveningConditions(conditions),
+                buildMorningMissionStatus(morningMission)
         );
 
         EveningMissionResponse response = openAiService.generateEveningMission(request);
-        List<String> steps = buildMissionStepsWithSchedule(userId, today, response.steps());
         GeneratedMission savedMission = saveGeneratedMission(
                 user,
                 dailySkinCheck,
-                response.title(),
+                response.title() == null || response.title().isBlank() ? EVENING_FALLBACK_TITLE : response.title(),
                 response.description(),
-                response.tip(),
                 today,
                 MissionTime.EVENING
         );
-        List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
 
+        List<String> steps = new ArrayList<>(response.steps());
+        scheduleRepository.findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        userId,
+                        today,
+                        today,
+                        ScheduleStatus.ACTIVE
+                )
+                .map(this::buildScheduleStep)
+                .ifPresent(steps::add);
+
+        List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
         return EveningMissionResponse.builder()
-                .title(response.title())
-                .description(response.description())
+                .title(savedMission.getTitle())
+                .description(savedMission.getDescription())
                 .stepIds(extractStepIds(savedSteps))
                 .steps(steps)
-                .tip(response.tip())
                 .build();
     }
 
+    @Transactional
     public TodayMissionResponse getTodayMissions(Long userId) {
         User user = getUser(userId);
         LocalDate today = getCurrentDate();
@@ -185,6 +275,11 @@ public class MissionService {
         GeneratedMission morningMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.MORNING)
                 .orElse(null);
+
+        if (morningMission == null && isAfterMorningWindow()) {
+            morningMission = getOrCreateMorningMission(user, today, true);
+        }
+
         GeneratedMission eveningMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
                 .orElse(null);
@@ -221,11 +316,10 @@ public class MissionService {
 
             GeneratedMission mission = generatedMissionStep.getGeneratedMission();
             validateMissionOwner(user, mission);
+            validateStepCompletionAllowed(mission);
 
             UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
-                    .orElseGet(() -> UserMissionStepCheck.builder()
-                            .generatedMissionStep(generatedMissionStep)
-                            .build());
+                    .orElseGet(() -> UserMissionStepCheck.builder().generatedMissionStep(generatedMissionStep).build());
 
             boolean alreadyChecked = stepCheck.isChecked();
             stepCheck.updateChecked(true);
@@ -240,7 +334,7 @@ public class MissionService {
             }
 
             if (isAllStepsCompleted(mission)) {
-                mission.complete();
+                mission.complete(LocalDateTime.now(KOREA_ZONE_ID));
                 generatedMissionRepository.saveAndFlush(mission);
             }
         } catch (CustomException e) {
@@ -266,12 +360,62 @@ public class MissionService {
         }
     }
 
+    private void validateMorningCategoryCount(List<MorningMissionCategory> categories) {
+        if (categories != null && categories.size() > 3) {
+            throw new CustomException(MissionErrorCode.INVALID_MORNING_ROUTINE_SIZE);
+        }
+    }
+
+    private GeneratedMission getOrCreateMorningMission(User user, LocalDate missionDate, boolean allowAutoMissed) {
+        GeneratedMission existingMission = generatedMissionRepository
+                .findByUserAndMissionDateAndMissionTime(user, missionDate, MissionTime.MORNING)
+                .orElse(null);
+
+        if (existingMission != null) {
+            return existingMission;
+        }
+
+        MorningRoutine routine = morningRoutineRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MORNING_ROUTINE_NOT_FOUND));
+
+        List<String> steps = morningRoutineItemRepository.findByMorningRoutineOrderByItemOrderAsc(routine)
+                .stream()
+                .sorted(Comparator.comparingInt(MorningRoutineItem::getItemOrder))
+                .map(MorningRoutineItem::getContent)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        scheduleRepository.findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        user.getId(),
+                        missionDate,
+                        missionDate,
+                        ScheduleStatus.ACTIVE
+                )
+                .map(this::buildScheduleStep)
+                .ifPresent(steps::add);
+
+        GeneratedMission savedMission = saveGeneratedMission(
+                user,
+                null,
+                MORNING_TITLE,
+                MORNING_DESCRIPTION,
+                missionDate,
+                MissionTime.MORNING
+        );
+        saveGeneratedMissionSteps(savedMission, steps);
+
+        if (allowAutoMissed && isAfterMorningWindow()) {
+            savedMission.fail();
+            generatedMissionRepository.save(savedMission);
+        }
+
+        return savedMission;
+    }
+
     private GeneratedMission saveGeneratedMission(
             User user,
             DailySkinCheck dailySkinCheck,
             String title,
             String description,
-            String tip,
             LocalDate missionDate,
             MissionTime missionTime
     ) {
@@ -281,7 +425,7 @@ public class MissionService {
                         .dailySkinCheck(dailySkinCheck)
                         .title(title)
                         .description(description)
-                        .tip(tip)
+                        .tip(EMPTY_TIP)
                         .promptVersion(PROMPT_VERSION)
                         .missionDate(missionDate)
                         .missionTime(missionTime)
@@ -305,23 +449,21 @@ public class MissionService {
         return generatedMissionStepRepository.saveAll(generatedMissionSteps);
     }
 
-    private List<String> buildMissionStepsWithSchedule(Long userId, LocalDate missionDate, List<String> aiSteps) {
-        List<String> steps = new ArrayList<>(aiSteps);
-        scheduleRepository.findByUserIdAndScheduleDateAndStatus(userId, missionDate, ScheduleStatus.ACTIVE)
-                .map(this::buildScheduleStep)
-                .ifPresent(steps::add);
-        return steps;
-    }
-
     private void validateMorningMissionTime() {
-        if (!getCurrentTime().isBefore(MORNING_END_TIME)) {
+        if (isAfterMorningWindow()) {
             throw new CustomException(MissionErrorCode.MORNING_MISSION_TIME_CLOSED);
         }
     }
 
     private void validateEveningMissionTime() {
-        if (getCurrentTime().isBefore(MORNING_END_TIME)) {
+        if (!isAfterMorningWindow()) {
             throw new CustomException(MissionErrorCode.EVENING_MISSION_TIME_ONLY);
+        }
+    }
+
+    private void validateStepCompletionAllowed(GeneratedMission mission) {
+        if (mission.getMissionTime() == MissionTime.MORNING && mission.getStatus() == MissionStatus.FAILED) {
+            throw new CustomException(MissionErrorCode.MISSION_STEP_COMPLETION_NOT_ALLOWED);
         }
     }
 
@@ -331,6 +473,10 @@ public class MissionService {
 
     private LocalTime getCurrentTime() {
         return LocalTime.now(KOREA_ZONE_ID);
+    }
+
+    private boolean isAfterMorningWindow() {
+        return !getCurrentTime().isBefore(MORNING_END_TIME);
     }
 
     private boolean isAllStepsCompleted(GeneratedMission mission) {
@@ -356,10 +502,7 @@ public class MissionService {
         }
 
         Map<Long, UserMissionStepCheck> checksByStepId = checks.stream()
-                .collect(Collectors.toMap(
-                        check -> check.getGeneratedMissionStep().getId(),
-                        Function.identity()
-                ));
+                .collect(Collectors.toMap(check -> check.getGeneratedMissionStep().getId(), Function.identity()));
 
         return rewardSteps.stream().allMatch(step ->
                 checksByStepId.get(step.getId()) != null && checksByStepId.get(step.getId()).isChecked()
@@ -378,7 +521,6 @@ public class MissionService {
                 .description(mission.getDescription())
                 .stepIds(extractStepIds(missionSteps))
                 .steps(missionSteps.stream().map(GeneratedMissionStep::getContent).toList())
-                .tip(mission.getTip())
                 .build();
     }
 
@@ -390,7 +532,6 @@ public class MissionService {
                 .description(mission.getDescription())
                 .stepIds(extractStepIds(missionSteps))
                 .steps(missionSteps.stream().map(GeneratedMissionStep::getContent).toList())
-                .tip(mission.getTip())
                 .build();
     }
 
@@ -409,10 +550,7 @@ public class MissionService {
         Map<Long, UserMissionStepCheck> checksByStepId = userMissionStepCheckRepository
                 .findByGeneratedMissionStepGeneratedMission(mission)
                 .stream()
-                .collect(Collectors.toMap(
-                        check -> check.getGeneratedMissionStep().getId(),
-                        Function.identity()
-                ));
+                .collect(Collectors.toMap(check -> check.getGeneratedMissionStep().getId(), Function.identity()));
 
         return missionSteps.stream()
                 .map(step -> MissionStepDetailResponse.builder()
@@ -424,24 +562,95 @@ public class MissionService {
                 .toList();
     }
 
-    private String buildPreviousMissionResult(List<UserMissionStepCheck> checks) {
-        if (checks.isEmpty()) {
+    private String buildMorningMissionStatus(GeneratedMission morningMission) {
+        List<GeneratedMissionStep> steps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(morningMission)
+                .stream()
+                .filter(this::isPointRewardStep)
+                .toList();
+        Map<Long, UserMissionStepCheck> checksByStepId = userMissionStepCheckRepository
+                .findByGeneratedMissionStepGeneratedMission(morningMission)
+                .stream()
+                .collect(Collectors.toMap(check -> check.getGeneratedMissionStep().getId(), Function.identity()));
+
+        return steps.stream()
+                .map(step -> step.getStepOrder() + ". " + step.getContent() + " - " + resolveMorningStepState(morningMission, step, checksByStepId))
+                .collect(Collectors.joining(", "));
+    }
+
+    private String resolveMorningStepState(
+            GeneratedMission mission,
+            GeneratedMissionStep step,
+            Map<Long, UserMissionStepCheck> checksByStepId
+    ) {
+        UserMissionStepCheck check = checksByStepId.get(step.getId());
+        if (check != null && check.isChecked()) {
+            return "완료";
+        }
+        if (mission.getStatus() == MissionStatus.FAILED) {
+            return "미완료(시간 만료)";
+        }
+        return "미완료";
+    }
+
+    private String getTodayScheduleContext(Long userId, LocalDate missionDate) {
+        return scheduleRepository.findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        userId,
+                        missionDate,
+                        missionDate,
+                        ScheduleStatus.ACTIVE
+                )
+                .map(this::buildScheduleContext)
+                .orElse(DEFAULT_VALUE);
+    }
+
+    private String buildScheduleContext(Schedule schedule) {
+        return "일정 제목: " + schedule.getTitle()
+                + ", 시작일: " + schedule.getStartDate()
+                + ", 종료일: " + schedule.getEndDate()
+                + ", 동행인: " + schedule.getCompanion()
+                + ", 일정 카테고리: " + schedule.getCategory();
+    }
+
+    private String buildScheduleStep(Schedule schedule) {
+        return schedule.getTitle() + " 일정 소화하기";
+    }
+
+    private String joinEveningConditions(Set<EveningCondition> conditions) {
+        if (conditions == null || conditions.isEmpty()) {
             return DEFAULT_VALUE;
         }
 
-        long checkedCount = checks.stream()
-                .filter(UserMissionStepCheck::isChecked)
-                .count();
+        return conditions.stream()
+                .sorted(Comparator.comparing(Enum::name))
+                .map(EveningCondition::getLabel)
+                .collect(Collectors.joining(", "));
+    }
 
-        return checkedCount + "/" + checks.size() + " 단계 완료";
+    private SkinCondition resolveRepresentativeSkinCondition(Set<EveningCondition> conditions) {
+        if (conditions == null || conditions.isEmpty() || conditions.contains(EveningCondition.NONE)) {
+            return SkinCondition.NORMAL;
+        }
+        if (conditions.contains(EveningCondition.RED_HOT)) {
+            return SkinCondition.HOT_REDNESS;
+        }
+        if (conditions.contains(EveningCondition.TROUBLE_OIL)) {
+            return SkinCondition.TROUBLE_REDNESS;
+        }
+        if (conditions.contains(EveningCondition.LONG_MAKEUP)) {
+            return SkinCondition.MAKEUP_BREAKDOWN;
+        }
+        if (conditions.contains(EveningCondition.DRY_TIGHT) || conditions.contains(EveningCondition.AC_HEATER_EXPOSURE)) {
+            return SkinCondition.DRY_TIGHT;
+        }
+        if (conditions.contains(EveningCondition.SENSITIVE_STINGING)) {
+            return SkinCondition.OUTDOOR_SENSITIVE;
+        }
+        return SkinCondition.NORMAL;
     }
 
     private String getAge(Integer age) {
         return age == null ? DEFAULT_VALUE : String.valueOf(age);
     }
-
-
-
 
     private String getSkinType(SkinType skinType) {
         return skinType == null ? DEFAULT_VALUE : skinType.getLabel();
@@ -456,65 +665,13 @@ public class MissionService {
     }
 
     private List<Long> extractStepIds(List<GeneratedMissionStep> steps) {
-        return steps.stream()
-                .map(GeneratedMissionStep::getId)
-                .toList();
+        return steps.stream().map(GeneratedMissionStep::getId).toList();
     }
 
-    private String getTodayScheduleContext(Long userId, LocalDate missionDate) {
-        return scheduleRepository.findByUserIdAndScheduleDateAndStatus(userId, missionDate, ScheduleStatus.ACTIVE)
-                .map(this::buildScheduleContext)
-                .orElse(DEFAULT_VALUE);
-    }
-
-    private String buildScheduleContext(Schedule schedule) {
-        String title = schedule.getTitle();
-        String companion = getCompanionText(schedule.getCompanion());
-        String category = getCategoryText(schedule.getCategory());
-        String startTime = schedule.getStartTime() == null ? DEFAULT_VALUE : schedule.getStartTime().toString();
-        String endTime = schedule.getEndTime() == null ? DEFAULT_VALUE : schedule.getEndTime().toString();
-
-        if (schedule.getCompanion() == Companion.ALONE) {
-            return "일정 제목: " + title + ", 일정 유형: " + category + ", 시작 시각: " + startTime + ", 종료 시각: " + endTime;
-        }
-
-        return "일정 제목: " + title + ", 동행자: " + companion + ", 일정 유형: " + category
-                + ", 시작 시각: " + startTime + ", 종료 시각: " + endTime;
-    }
-
-    private String buildScheduleStep(Schedule schedule) {
-        String companion = getCompanionText(schedule.getCompanion());
-        String category = getCategoryText(schedule.getCategory());
-
-        if (schedule.getCompanion() == Companion.ALONE) {
-            return category;
-        }
-
-        return companion + "와 " + category;
-    }
-
-    private String getCompanionText(Companion companion) {
-        return switch (companion) {
-            case ALONE -> "혼자";
-            case LOVER -> "연인";
-            case COWORKER -> "직장동료";
-            case FRIEND -> "친구";
-            case FAMILY -> "가족";
-            case ACQUAINTANCE -> "지인";
-        };
-    }
-
-    private String getCategoryText(ScheduleCategory category) {
-        return switch (category) {
-            case DATE -> "데이트하기";
-            case MEETING -> "미팅 참석하기";
-            case SELF_CARE -> "자기관리 시간 보내기";
-            case DRINKING -> "술자리 참석하기";
-            case TRAVEL -> "여행 다녀오기";
-            case WEDDING -> "결혼식 참석하기";
-            case EVENT -> "행사 참석하기";
-            case TALK -> "대화 나누기";
-            case CEREMONY -> "경조사 참석하기";
-        };
+    private MorningRoutineResponse toMorningRoutineResponse(MorningRoutine routine, List<MorningRoutineItem> items) {
+        return MorningRoutineResponse.builder()
+                .routineId(routine.getId())
+                .items(items.stream().map(MorningRoutineItemResponse::from).toList())
+                .build();
     }
 }

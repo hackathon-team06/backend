@@ -1,4 +1,11 @@
 package com.likelion.staycare.domain.googlecalendar.dto;
 
-public class GoogleCalendarEventsResponse {
+import lombok.Builder;
+
+import java.util.List;
+
+@Builder
+public record GoogleCalendarEventsResponse(
+        List<GoogleCalendarEventResponse> events
+) {
 }

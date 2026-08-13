@@ -70,6 +70,7 @@ public class ScheduleService {
 
     @Transactional
     public ScheduleResponse updateSchedule(Long userId, Long scheduleId, ScheduleUpdateRequest request) {
+        getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
 
         schedule.updateSchedule(

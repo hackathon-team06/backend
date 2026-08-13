@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
-    
+
     List<Schedule> findAllByUserIdAndScheduleDateOrderByScheduleDateAsc(Long userId, LocalDate scheduleDate);
 
     Optional<Schedule> findByUserIdAndScheduleDateAndStatus(Long userId, LocalDate scheduleDate, ScheduleStatus status);

@@ -25,7 +25,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final CorsConfigurationSource corsConfigurationSource; // ← CorsConfig에서 주입
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,16 +51,25 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/diagnoses/options").permitAll()
+
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/diagnoses/options").permitAll()
+
+                        // Google Calendar OAuth callback은 Google이 redirect 하므로 인증 없이 허용
+                        .requestMatchers(HttpMethod.GET, "/api/google-calendar/callback").permitAll()
+
+                        // 아래는 로그인 사용자만 접근
+                        .requestMatchers(HttpMethod.GET, "/api/google-calendar/connect-url").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/google-calendar/events").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/google-calendar/sync").authenticated()
+
                         .anyRequest().authenticated()
                 )
-
 
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
 }

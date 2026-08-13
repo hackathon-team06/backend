@@ -108,8 +108,13 @@ public class GeneratedMission {
         this.status = MissionStatus.PENDING;
     }
 
-    public void complete() {
+    public void complete(LocalDateTime completedAt) {
         this.status = MissionStatus.COMPLETED;
-        this.completedAt = LocalDateTime.now();
+        this.completedAt = completedAt;
+    }
+
+    public void fail() {
+        this.status = MissionStatus.FAILED;
+        this.completedAt = null;
     }
 }
