@@ -6,6 +6,7 @@ import com.likelion.staycare.domain.schedule.dto.response.ScheduleDateResponse;
 import com.likelion.staycare.domain.schedule.dto.response.ScheduleResponse;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
+import com.likelion.staycare.domain.schedule.exception.ScheduleErrorCode;
 import com.likelion.staycare.domain.schedule.exception.ScheduleNotFoundException;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -24,45 +26,44 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ScheduleService {
 
+    private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
+
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
 
     @Transactional
     public ScheduleResponse createSchedule(Long userId, ScheduleCreateRequest request) {
+        validateDateRange(request.startDate(), request.endDate());
         User user = getUser(userId);
+        validateNoOverlap(userId, request.startDate(), request.endDate(), null);
 
-        Schedule schedule = scheduleRepository
-                .findByUserIdAndScheduleDate(userId, request.scheduleDate())
-                .orElseGet(() -> Schedule.builder()
+        Schedule schedule = scheduleRepository.save(
+                Schedule.builder()
                         .user(user)
                         .title(request.title())
-                        .scheduleDate(request.scheduleDate())
+                        .startDate(request.startDate())
+                        .endDate(request.endDate())
                         .startTime(request.startTime())
                         .endTime(request.endTime())
                         .companion(request.companion())
                         .category(request.category())
-                        .build());
-
-        schedule.updateSchedule(
-                request.title(),
-                request.scheduleDate(),
-                request.startTime(),
-                request.endTime(),
-                request.companion(),
-                request.category()
+                        .build()
         );
 
-        return ScheduleResponse.from(scheduleRepository.save(schedule));
+        return ScheduleResponse.from(schedule);
     }
 
     @Transactional
     public ScheduleResponse updateSchedule(Long userId, Long scheduleId, ScheduleUpdateRequest request) {
+        validateDateRange(request.startDate(), request.endDate());
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
+        validateNoOverlap(userId, request.startDate(), request.endDate(), scheduleId);
 
         schedule.updateSchedule(
                 request.title(),
-                request.scheduleDate(),
+                request.startDate(),
+                request.endDate(),
                 request.startTime(),
                 request.endTime(),
                 request.companion(),
@@ -73,7 +74,13 @@ public class ScheduleService {
     }
 
     public ScheduleResponse getTodaySchedule(Long userId) {
-        return scheduleRepository.findByUserIdAndScheduleDateAndStatus(userId, LocalDate.now(), ScheduleStatus.ACTIVE)
+        LocalDate today = LocalDate.now(KOREA_ZONE_ID);
+        return scheduleRepository.findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        userId,
+                        today,
+                        today,
+                        ScheduleStatus.ACTIVE
+                )
                 .map(ScheduleResponse::from)
                 .orElse(null);
     }
@@ -81,9 +88,13 @@ public class ScheduleService {
     public List<ScheduleDateResponse> getSchedulesByDate(Long userId, LocalDate date) {
         getUser(userId);
 
-        return scheduleRepository.findAllByUserIdAndScheduleDateOrderByScheduleDateAsc(userId, date)
+        return scheduleRepository.findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
+                        userId,
+                        date,
+                        date
+                )
                 .stream()
-                .map(schedule -> ScheduleDateResponse.from(schedule, LocalDate.now()))
+                .map(schedule -> ScheduleDateResponse.from(schedule, LocalDate.now(KOREA_ZONE_ID)))
                 .toList();
     }
 
@@ -91,7 +102,6 @@ public class ScheduleService {
     public ScheduleResponse cancelSchedule(Long userId, Long scheduleId) {
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
-
         schedule.cancel();
         return ScheduleResponse.from(scheduleRepository.save(schedule));
     }
@@ -110,5 +120,27 @@ public class ScheduleService {
     private Schedule getOwnedSchedule(Long userId, Long scheduleId) {
         return scheduleRepository.findByIdAndUserId(scheduleId, userId)
                 .orElseThrow(ScheduleNotFoundException::new);
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new CustomException(ScheduleErrorCode.INVALID_SCHEDULE_DATE_RANGE);
+        }
+    }
+
+    private void validateNoOverlap(Long userId, LocalDate startDate, LocalDate endDate, Long excludeScheduleId) {
+        boolean overlapped = scheduleRepository
+                .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        userId,
+                        endDate,
+                        startDate,
+                        ScheduleStatus.ACTIVE
+                )
+                .stream()
+                .anyMatch(schedule -> excludeScheduleId == null || !schedule.getId().equals(excludeScheduleId));
+
+        if (overlapped) {
+            throw new CustomException(ScheduleErrorCode.SCHEDULE_DATE_CONFLICT);
+        }
     }
 }

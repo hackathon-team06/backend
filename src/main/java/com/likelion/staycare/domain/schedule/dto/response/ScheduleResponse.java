@@ -13,7 +13,8 @@ import java.time.LocalTime;
 public record ScheduleResponse(
         Long id,
         String title,
-        LocalDate scheduleDate,
+        LocalDate startDate,
+        LocalDate endDate,
         LocalTime startTime,
         LocalTime endTime,
         Companion companion,
@@ -24,7 +25,8 @@ public record ScheduleResponse(
         return ScheduleResponse.builder()
                 .id(schedule.getId())
                 .title(schedule.getTitle())
-                .scheduleDate(schedule.getScheduleDate())
+                .startDate(schedule.getStartDate())
+                .endDate(schedule.getEndDate())
                 .startTime(schedule.getStartTime())
                 .endTime(schedule.getEndTime())
                 .companion(schedule.getCompanion())

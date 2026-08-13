@@ -6,6 +6,7 @@ public record EveningMissionRequest(
         String goal,
         String checkCycle,
         String todaySchedule,
-        String todaySkinCondition
+        String todaySkinCondition,
+        String morningMissionStatus
 ) {
 }

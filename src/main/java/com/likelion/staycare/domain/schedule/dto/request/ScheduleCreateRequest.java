@@ -9,46 +9,32 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-@Schema(
-        name = "ScheduleCreateRequest",
-        description = """
-                일정 등록 요청
-                companion 선택값: ALONE, FAMILY, FRIEND, LOVER, COWORKER, ACQUAINTANCE
-                category 선택값: SELF_CARE, MEETING, DATE, TRAVEL, EVENT, CEREMONY, WEDDING, DRINKING, TALK
-                """
-)
+@Schema(name = "ScheduleCreateRequest", description = "일정 등록 요청")
 public record ScheduleCreateRequest(
-        @NotBlank(message = "일정 제목을 입력해주세요.")
-        @Schema(description = "일정 제목", example = "친구 결혼식")
+        @NotBlank
+        @Schema(description = "일정 제목", example = "제주도 여행")
         String title,
 
-        @NotNull(message = "일정 날짜를 입력해주세요.")
-        @Schema(description = "일정 날짜", example = "2026-08-15")
-        LocalDate scheduleDate,
+        @NotNull
+        @Schema(description = "일정 시작일", example = "2026-08-15")
+        LocalDate startDate,
 
-        @Schema(description = "일정 시작 시각", example = "13:00", nullable = true)
+        @NotNull
+        @Schema(description = "일정 종료일", example = "2026-08-17")
+        LocalDate endDate,
+
+        @Schema(description = "시작 시간", example = "09:00", nullable = true)
         LocalTime startTime,
 
-        @Schema(description = "일정 종료 시각", example = "16:00", nullable = true)
+        @Schema(description = "종료 시간", example = "20:00", nullable = true)
         LocalTime endTime,
 
-        @NotNull(message = "동행자를 입력해주세요.")
-        @Schema(
-                description = "동행자",
-                example = "FRIEND",
-                allowableValues = {"ALONE", "FAMILY", "FRIEND", "LOVER", "COWORKER", "ACQUAINTANCE"}
-        )
+        @NotNull
+        @Schema(description = "동행자", example = "FRIEND")
         Companion companion,
 
-        @NotNull(message = "일정 카테고리를 입력해주세요.")
-        @Schema(
-                description = "일정 카테고리",
-                example = "WEDDING",
-                allowableValues = {
-                        "SELF_CARE", "MEETING", "DATE", "TRAVEL", "EVENT",
-                        "CEREMONY", "WEDDING", "DRINKING", "TALK"
-                }
-        )
+        @NotNull
+        @Schema(description = "일정 카테고리", example = "TRAVEL")
         ScheduleCategory category
 ) {
 }

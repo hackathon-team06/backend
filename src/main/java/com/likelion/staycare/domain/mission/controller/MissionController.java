@@ -1,10 +1,14 @@
 package com.likelion.staycare.domain.mission.controller;
 
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionCreateRequest;
+import com.likelion.staycare.domain.mission.dto.request.MorningRoutineRecommendationRequest;
+import com.likelion.staycare.domain.mission.dto.request.MorningRoutineSaveRequest;
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionStepDetailResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningMissionResponse;
+import com.likelion.staycare.domain.mission.dto.response.MorningRoutineRecommendationResponse;
+import com.likelion.staycare.domain.mission.dto.response.MorningRoutineResponse;
 import com.likelion.staycare.domain.mission.dto.response.TodayMissionResponse;
 import com.likelion.staycare.domain.mission.service.MissionService;
 import com.likelion.staycare.global.security.CustomUserDetails;
@@ -15,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,7 +40,42 @@ public class MissionController {
 
     private final MissionService missionService;
 
-    @Operation(summary = "아침 미션 생성", description = "현재 로그인한 사용자의 아침 미션을 생성하거나 기존 미션을 반환합니다.")
+    @Operation(summary = "아침 루틴 추천", description = "사용자 정보와 원하는 카테고리로 고정 아침 루틴 후보를 추천합니다.")
+    @PostMapping("/morning-routine/recommendations")
+    public ResponseEntity<MorningRoutineRecommendationResponse> recommendMorningRoutine(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody MorningRoutineRecommendationRequest request
+    ) {
+        return ResponseEntity.ok(missionService.recommendMorningRoutine(userDetails.getUserId(), request));
+    }
+
+    @Operation(summary = "아침 루틴 저장", description = "사용자가 선택하거나 직접 입력한 아침 루틴을 저장합니다.")
+    @PostMapping("/morning-routine")
+    public ResponseEntity<MorningRoutineResponse> saveMorningRoutine(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody MorningRoutineSaveRequest request
+    ) {
+        return ResponseEntity.ok(missionService.saveMorningRoutine(userDetails.getUserId(), request));
+    }
+
+    @Operation(summary = "아침 루틴 조회", description = "현재 로그인 사용자의 고정 아침 루틴을 조회합니다.")
+    @GetMapping("/morning-routine")
+    public ResponseEntity<MorningRoutineResponse> getMorningRoutine(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(missionService.getMorningRoutine(userDetails.getUserId()));
+    }
+
+    @Operation(summary = "아침 루틴 항목 삭제", description = "고정 아침 루틴의 특정 항목을 삭제합니다.")
+    @DeleteMapping("/morning-routine/items/{itemId}")
+    public ResponseEntity<MorningRoutineResponse> deleteMorningRoutineItem(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long itemId
+    ) {
+        return ResponseEntity.ok(missionService.deleteMorningRoutineItem(userDetails.getUserId(), itemId));
+    }
+
+    @Operation(summary = "아침 미션 생성", description = "현재 로그인 사용자의 저장된 고정 아침 루틴으로 오늘 아침 미션을 생성합니다.")
     @PostMapping("/morning")
     public ResponseEntity<MorningMissionResponse> generateMorningMission(
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -43,18 +83,16 @@ public class MissionController {
         return ResponseEntity.ok(missionService.generateMorningMission(userDetails.getUserId()));
     }
 
-    @Operation(summary = "저녁 미션 생성", description = "현재 로그인한 사용자의 저녁 미션을 생성하거나 기존 미션을 반환합니다.")
+    @Operation(summary = "저녁 미션 생성", description = "오늘 아침 수행 여부와 사용자 상태를 바탕으로 저녁 미션을 생성합니다.")
     @PostMapping("/evening")
     public ResponseEntity<EveningMissionResponse> generateEveningMission(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody EveningMissionCreateRequest request
     ) {
-        return ResponseEntity.ok(
-                missionService.generateEveningMission(userDetails.getUserId(), request.skinCondition())
-        );
+        return ResponseEntity.ok(missionService.generateEveningMission(userDetails.getUserId(), request.skinCondition()));
     }
 
-    @Operation(summary = "오늘 미션 조회", description = "오늘 생성된 아침/저녁 미션을 함께 조회합니다.")
+    @Operation(summary = "오늘 미션 조회", description = "오늘 생성된 아침/저녁 미션을 조회합니다.")
     @GetMapping("/today")
     public ResponseEntity<TodayMissionResponse> getTodayMissions(
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -71,7 +109,7 @@ public class MissionController {
         return ResponseEntity.ok(missionService.getMissionSteps(userDetails.getUserId(), missionId));
     }
 
-    @Operation(summary = "날짜별 미션 조회", description = "특정 사용자의 특정 날짜 미션 목록과 단계 목록을 함께 조회합니다.")
+    @Operation(summary = "날짜별 미션 조회", description = "특정 날짜의 미션 목록과 단계 목록을 조회합니다.")
     @GetMapping("/date")
     public ResponseEntity<List<MissionByDateResponse>> getMissionsByDate(
             @RequestParam Long userId,
