@@ -9,7 +9,6 @@ public record EveningMissionResponse(
         String title,
         String description,
         List<Long> stepIds,
-        List<String> steps,
-        String tip
+        List<String> steps
 ) {
 }

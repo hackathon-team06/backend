@@ -61,4 +61,8 @@ public class DailySkinCheck {
         this.skinCondition = skinCondition;
         this.checkedDate = checkedDate;
     }
+
+    public void updateSkinCondition(SkinCondition skinCondition) {
+        this.skinCondition = skinCondition;
+    }
 }
