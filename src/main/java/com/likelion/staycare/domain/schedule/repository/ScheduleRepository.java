@@ -10,10 +10,25 @@ import java.util.Optional;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
+    Optional<Schedule> findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+            Long userId,
+            LocalDate startDate,
+            LocalDate endDate,
+            ScheduleStatus status
+    );
 
-    List<Schedule> findAllByUserIdAndScheduleDateOrderByScheduleDateAsc(Long userId, LocalDate scheduleDate);
+    List<Schedule> findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
+            Long userId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 
-    Optional<Schedule> findByUserIdAndScheduleDateAndStatus(Long userId, LocalDate scheduleDate, ScheduleStatus status);
+    List<Schedule> findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+            Long userId,
+            LocalDate startDate,
+            LocalDate endDate,
+            ScheduleStatus status
+    );
 
-
+    Optional<Schedule> findByIdAndUserId(Long scheduleId, Long userId);
 }

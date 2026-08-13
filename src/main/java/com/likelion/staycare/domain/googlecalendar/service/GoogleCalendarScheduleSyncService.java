@@ -12,19 +12,24 @@ import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class GoogleCalendarScheduleSyncService {
+
+    private static final String PRIMARY_CALENDAR_ID = "primary";
 
     private final GoogleCalendarApiService googleCalendarApiService;
     private final GoogleCalendarScheduleLinkRepository linkRepository;
@@ -47,7 +52,14 @@ public class GoogleCalendarScheduleSyncService {
                 continue;
             }
 
-            ParsedEvent parsed = parseEvent(event);
+            ParsedEvent parsed;
+            try {
+                parsed = parseEvent(event);
+            } catch (Exception e) {
+                log.warn("Google 이벤트 파싱 실패. eventId={}", event.id(), e);
+                skipped++;
+                continue;
+            }
 
             Optional<GoogleCalendarScheduleLink> optionalLink =
                     linkRepository.findByUser_IdAndGoogleEventId(userId, event.id());
@@ -56,22 +68,25 @@ public class GoogleCalendarScheduleSyncService {
                 GoogleCalendarScheduleLink link = optionalLink.get();
                 Schedule schedule = link.getSchedule();
 
-                schedule.updateFromGoogle(
+                schedule.updateSchedule(
                         normalizeTitle(event.summary()),
-                        parsed.scheduleDate(),
+                        parsed.startDate(),
+                        parsed.endDate(),
                         parsed.startTime(),
                         parsed.endTime(),
-                        defaultCompanion(),
-                        defaultCategory()
+                        schedule.getCompanion() != null ? schedule.getCompanion() : defaultCompanion(),
+                        schedule.getCategory() != null ? schedule.getCategory() : defaultCategory()
                 );
 
                 link.touchSyncedAt();
+                linkRepository.save(link);
                 updated++;
             } else {
                 Schedule schedule = Schedule.builder()
                         .user(user)
                         .title(normalizeTitle(event.summary()))
-                        .scheduleDate(parsed.scheduleDate())
+                        .startDate(parsed.startDate())
+                        .endDate(parsed.endDate())
                         .startTime(parsed.startTime())
                         .endTime(parsed.endTime())
                         .companion(defaultCompanion())
@@ -83,9 +98,9 @@ public class GoogleCalendarScheduleSyncService {
                 GoogleCalendarScheduleLink link = GoogleCalendarScheduleLink.builder()
                         .user(user)
                         .schedule(schedule)
-                        .googleCalendarId("primary")
+                        .googleCalendarId(PRIMARY_CALENDAR_ID)
                         .googleEventId(event.id())
-                        .lastSyncedAt(java.time.LocalDateTime.now())
+                        .lastSyncedAt(LocalDateTime.now())
                         .build();
 
                 linkRepository.save(link);
@@ -114,24 +129,36 @@ public class GoogleCalendarScheduleSyncService {
             throw new IllegalArgumentException("Google 이벤트 시작 시간이 없습니다. eventId=" + event.id());
         }
 
-        // 종일 일정
+        // 종일 일정: Google all-day end.date는 exclusive
         if (start.date() != null && !start.date().isBlank()) {
-            LocalDate scheduleDate = LocalDate.parse(start.date());
-            return new ParsedEvent(scheduleDate, null, null);
+            LocalDate startDate = LocalDate.parse(start.date());
+
+            LocalDate endDate = startDate;
+            if (end != null && end.date() != null && !end.date().isBlank()) {
+                LocalDate exclusiveEndDate = LocalDate.parse(end.date());
+                LocalDate inclusiveEndDate = exclusiveEndDate.minusDays(1);
+                endDate = inclusiveEndDate.isBefore(startDate) ? startDate : inclusiveEndDate;
+            }
+
+            return new ParsedEvent(startDate, endDate, null, null);
         }
 
         // 시간 지정 일정
         if (start.dateTime() != null && !start.dateTime().isBlank()) {
             OffsetDateTime startDateTime = OffsetDateTime.parse(start.dateTime());
-            LocalDate scheduleDate = startDateTime.toLocalDate();
-            LocalTime startTime = startDateTime.toLocalTime();
+            LocalDate startDate = startDateTime.toLocalDate();
+            LocalTime startTime = startDateTime.toLocalTime().withNano(0);
 
+            LocalDate endDate = startDate;
             LocalTime endTime = null;
+
             if (end != null && end.dateTime() != null && !end.dateTime().isBlank()) {
-                endTime = OffsetDateTime.parse(end.dateTime()).toLocalTime();
+                OffsetDateTime endDateTime = OffsetDateTime.parse(end.dateTime());
+                endDate = endDateTime.toLocalDate();
+                endTime = endDateTime.toLocalTime().withNano(0);
             }
 
-            return new ParsedEvent(scheduleDate, startTime, endTime);
+            return new ParsedEvent(startDate, endDate, startTime, endTime);
         }
 
         throw new IllegalArgumentException("Google 이벤트 시간 형식을 해석할 수 없습니다. eventId=" + event.id());
@@ -146,7 +173,8 @@ public class GoogleCalendarScheduleSyncService {
     }
 
     private record ParsedEvent(
-            LocalDate scheduleDate,
+            LocalDate startDate,
+            LocalDate endDate,
             LocalTime startTime,
             LocalTime endTime
     ) {

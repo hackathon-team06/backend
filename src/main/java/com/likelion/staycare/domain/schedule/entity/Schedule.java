@@ -118,23 +118,6 @@ public class Schedule extends BaseTimeEntity {
         this.status = ScheduleStatus.ACTIVE;
     }
 
-    public void updateFromGoogle(
-            String title,
-            LocalDate scheduleDate,
-            LocalTime startTime,
-            LocalTime endTime,
-            Companion companion,
-            ScheduleCategory category
-    ) {
-        this.title = title;
-        this.scheduleDate = scheduleDate;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.companion = companion;
-        this.category = category;
-        this.status = ScheduleStatus.ACTIVE;
-    }
-
     public void cancel() {
         this.status = ScheduleStatus.CANCELLED;
     }
