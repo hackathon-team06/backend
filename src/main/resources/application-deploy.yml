@@ -63,7 +63,7 @@ google:
   calendar:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
-    redirect-uri: https://api.staycare.com/api/google-calendar/callback
+    redirect-uri: https://api.staycare.shop/api/google-calendar/callback
     auth-uri: https://accounts.google.com/o/oauth2/v2/auth
     token-uri: https://oauth2.googleapis.com/token
     scope: https://www.googleapis.com/auth/calendar
