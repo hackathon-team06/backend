@@ -1,5 +1,8 @@
 package com.likelion.staycare.domain.schedule.service;
 
+import com.likelion.staycare.domain.googlecalendar.repository.GoogleCalendarScheduleLinkRepository;
+import com.likelion.staycare.domain.googlecalendar.service.GoogleCalendarSchedulePushService;
+import com.likelion.staycare.domain.googlecalendar.service.GoogleCalendarScheduleSyncService;
 import com.likelion.staycare.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.likelion.staycare.domain.schedule.dto.request.ScheduleUpdateRequest;
 import com.likelion.staycare.domain.schedule.dto.response.ScheduleDateResponse;
@@ -14,6 +17,8 @@ import com.likelion.staycare.domain.user.exception.UserErrorCode;
 import com.likelion.staycare.domain.user.repository.UserRepository;
 import com.likelion.staycare.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,19 +26,23 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ScheduleService {
 
     private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
+    private final GoogleCalendarSchedulePushService googleCalendarSchedulePushService;
+    private final GoogleCalendarScheduleSyncService googleCalendarScheduleSyncService;
+    private final GoogleCalendarScheduleLinkRepository googleCalendarScheduleLinkRepository;
 
     @Transactional
     public ScheduleResponse createSchedule(Long userId, ScheduleCreateRequest request) {
         validateDateRange(request.startDate(), request.endDate());
+
         User user = getUser(userId);
         validateNoOverlap(userId, request.startDate(), request.endDate(), null);
 
@@ -50,12 +59,27 @@ public class ScheduleService {
                         .build()
         );
 
+        try {
+            scheduleRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            log.error("Schedule 저장 실패 - DB 제약조건 오류. userId={}, startDate={}, endDate={}",
+                    userId, request.startDate(), request.endDate(), e);
+            throw e;
+        }
+
+        try {
+            googleCalendarSchedulePushService.createGoogleEventIfConnected(schedule);
+        } catch (Exception e) {
+            log.error("Google Calendar 일정 생성 실패. scheduleId={}", schedule.getId(), e);
+        }
+
         return ScheduleResponse.from(schedule);
     }
 
     @Transactional
     public ScheduleResponse updateSchedule(Long userId, Long scheduleId, ScheduleUpdateRequest request) {
         validateDateRange(request.startDate(), request.endDate());
+
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
         validateNoOverlap(userId, request.startDate(), request.endDate(), scheduleId);
@@ -70,12 +94,34 @@ public class ScheduleService {
                 request.category()
         );
 
-        return ScheduleResponse.from(scheduleRepository.save(schedule));
+        try {
+            scheduleRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            log.error("Schedule 수정 실패 - DB 제약조건 오류. scheduleId={}, userId={}, startDate={}, endDate={}",
+                    scheduleId, userId, request.startDate(), request.endDate(), e);
+            throw e;
+        }
+
+        try {
+            googleCalendarSchedulePushService.updateGoogleEventIfLinked(schedule);
+        } catch (Exception e) {
+            log.error("Google Calendar 일정 수정 실패. scheduleId={}", schedule.getId(), e);
+        }
+
+        return ScheduleResponse.from(schedule);
     }
 
     public ScheduleResponse getTodaySchedule(Long userId) {
         LocalDate today = LocalDate.now(KOREA_ZONE_ID);
-        return scheduleRepository.findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+
+        try {
+            googleCalendarScheduleSyncService.syncDate(userId, today);
+        } catch (Exception e) {
+            log.error("Google Calendar 오늘 일정 동기화 실패. userId={}, date={}", userId, today, e);
+        }
+
+        return scheduleRepository
+                .findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
                         userId,
                         today,
                         today,
@@ -88,10 +134,18 @@ public class ScheduleService {
     public List<ScheduleDateResponse> getSchedulesByDate(Long userId, LocalDate date) {
         getUser(userId);
 
-        return scheduleRepository.findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
+        try {
+            googleCalendarScheduleSyncService.syncDate(userId, date);
+        } catch (Exception e) {
+            log.error("Google Calendar 날짜 일정 동기화 실패. userId={}, date={}", userId, date, e);
+        }
+
+        return scheduleRepository
+                .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
                         userId,
                         date,
-                        date
+                        date,
+                        ScheduleStatus.ACTIVE
                 )
                 .stream()
                 .map(schedule -> ScheduleDateResponse.from(schedule, LocalDate.now(KOREA_ZONE_ID)))
@@ -102,14 +156,41 @@ public class ScheduleService {
     public ScheduleResponse cancelSchedule(Long userId, Long scheduleId) {
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
+
         schedule.cancel();
-        return ScheduleResponse.from(scheduleRepository.save(schedule));
+
+        try {
+            scheduleRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            log.error("Schedule 취소 상태 반영 실패. scheduleId={}", scheduleId, e);
+            throw e;
+        }
+
+        try {
+            googleCalendarSchedulePushService.cancelGoogleEventIfLinked(schedule);
+        } catch (Exception e) {
+            log.error("Google Calendar 일정 취소 실패. scheduleId={}", schedule.getId(), e);
+        }
+
+        return ScheduleResponse.from(schedule);
     }
 
     @Transactional
     public void deleteSchedule(Long userId, Long scheduleId) {
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
+
+        try {
+            googleCalendarSchedulePushService.deleteGoogleEventIfLinked(schedule);
+        } catch (Exception e) {
+            log.error("Google Calendar 일정 삭제 실패. scheduleId={}", schedule.getId(), e);
+        }
+
+        // 혹시 링크가 남아 있으면 정리
+        googleCalendarScheduleLinkRepository.findBySchedule_Id(schedule.getId())
+                .ifPresent(googleCalendarScheduleLinkRepository::delete);
+
         scheduleRepository.delete(schedule);
+        scheduleRepository.flush();
     }
 
     private User getUser(Long userId) {
@@ -123,6 +204,10 @@ public class ScheduleService {
     }
 
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("시작일/종료일은 필수입니다.");
+        }
+
         if (startDate.isAfter(endDate)) {
             throw new CustomException(ScheduleErrorCode.INVALID_SCHEDULE_DATE_RANGE);
         }

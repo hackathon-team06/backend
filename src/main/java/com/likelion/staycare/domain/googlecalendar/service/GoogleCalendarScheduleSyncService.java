@@ -14,6 +14,7 @@ import com.likelion.staycare.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -26,7 +27,6 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class GoogleCalendarScheduleSyncService {
 
     private static final String PRIMARY_CALENDAR_ID = "primary";
@@ -36,7 +36,10 @@ public class GoogleCalendarScheduleSyncService {
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GoogleCalendarSyncResult syncDate(Long userId, LocalDate date) {
+        log.info("Google Calendar sync start. userId={}, date={}", userId, date);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
@@ -47,66 +50,107 @@ public class GoogleCalendarScheduleSyncService {
         int skipped = 0;
 
         for (GoogleCalendarEventItem event : events) {
-            if (event.id() == null || event.id().isBlank()) {
-                skipped++;
-                continue;
-            }
-
-            ParsedEvent parsed;
             try {
-                parsed = parseEvent(event);
+                if (event.id() == null || event.id().isBlank()) {
+                    skipped++;
+                    continue;
+                }
+
+                Optional<GoogleCalendarScheduleLink> optionalLink =
+                        linkRepository.findByUser_IdAndGoogleEventId(userId, event.id());
+
+                log.info("Google Calendar sync event. eventId={}, summary={}, status={}, linked={}",
+                        event.id(), event.summary(), event.status(), optionalLink.isPresent());
+
+                // 구글에서 삭제/취소된 일정
+                if ("cancelled".equalsIgnoreCase(event.status())) {
+                    if (optionalLink.isPresent()) {
+                        GoogleCalendarScheduleLink link = optionalLink.get();
+                        Schedule schedule = link.getSchedule();
+
+                        // FK 때문에 링크 먼저 삭제
+                        linkRepository.delete(link);
+
+                        if (schedule != null) {
+                            scheduleRepository.delete(schedule);
+                        }
+
+                        updated++;
+                        log.info("Google Calendar cancelled event removed from local DB. googleEventId={}", event.id());
+                    } else {
+                        skipped++;
+                    }
+                    continue;
+                }
+
+
+                ParsedEvent parsed = parseEvent(event);
+
+                if (optionalLink.isPresent()) {
+                    GoogleCalendarScheduleLink link = optionalLink.get();
+                    Schedule schedule = link.getSchedule();
+
+                    if (schedule == null) {
+                        skipped++;
+                        continue;
+                    }
+
+                    schedule.updateSchedule(
+                            normalizeTitle(event.summary()),
+                            parsed.startDate(),
+                            parsed.endDate(),
+                            parsed.startTime(),
+                            parsed.endTime(),
+                            schedule.getCompanion() != null ? schedule.getCompanion() : defaultCompanion(),
+                            schedule.getCategory() != null ? schedule.getCategory() : defaultCategory()
+                    );
+
+                    scheduleRepository.save(schedule);
+                    link.touchSyncedAt();
+                    linkRepository.save(link);
+                    updated++;
+
+                    log.info("Google Calendar sync updated local schedule. scheduleId={}, googleEventId={}",
+                            schedule.getId(), event.id());
+
+                } else {
+                    Schedule schedule = Schedule.builder()
+                            .user(user)
+                            .title(normalizeTitle(event.summary()))
+                            .startDate(parsed.startDate())
+                            .endDate(parsed.endDate())
+                            .startTime(parsed.startTime())
+                            .endTime(parsed.endTime())
+                            .companion(defaultCompanion())
+                            .category(defaultCategory())
+                            .build();
+
+                    scheduleRepository.save(schedule);
+
+                    GoogleCalendarScheduleLink link = GoogleCalendarScheduleLink.builder()
+                            .user(user)
+                            .schedule(schedule)
+                            .googleCalendarId(PRIMARY_CALENDAR_ID)
+                            .googleEventId(event.id())
+                            .lastSyncedAt(LocalDateTime.now())
+                            .build();
+
+                    linkRepository.save(link);
+                    created++;
+
+                    log.info("Google Calendar sync created local schedule. scheduleId={}, googleEventId={}",
+                            schedule.getId(), event.id());
+                }
+
             } catch (Exception e) {
-                log.warn("Google 이벤트 파싱 실패. eventId={}", event.id(), e);
+                log.error("Google Calendar single event sync failed. userId={}, date={}, eventId={}",
+                        userId, date, event.id(), e);
                 skipped++;
-                continue;
-            }
-
-            Optional<GoogleCalendarScheduleLink> optionalLink =
-                    linkRepository.findByUser_IdAndGoogleEventId(userId, event.id());
-
-            if (optionalLink.isPresent()) {
-                GoogleCalendarScheduleLink link = optionalLink.get();
-                Schedule schedule = link.getSchedule();
-
-                schedule.updateSchedule(
-                        normalizeTitle(event.summary()),
-                        parsed.startDate(),
-                        parsed.endDate(),
-                        parsed.startTime(),
-                        parsed.endTime(),
-                        schedule.getCompanion() != null ? schedule.getCompanion() : defaultCompanion(),
-                        schedule.getCategory() != null ? schedule.getCategory() : defaultCategory()
-                );
-
-                link.touchSyncedAt();
-                linkRepository.save(link);
-                updated++;
-            } else {
-                Schedule schedule = Schedule.builder()
-                        .user(user)
-                        .title(normalizeTitle(event.summary()))
-                        .startDate(parsed.startDate())
-                        .endDate(parsed.endDate())
-                        .startTime(parsed.startTime())
-                        .endTime(parsed.endTime())
-                        .companion(defaultCompanion())
-                        .category(defaultCategory())
-                        .build();
-
-                scheduleRepository.save(schedule);
-
-                GoogleCalendarScheduleLink link = GoogleCalendarScheduleLink.builder()
-                        .user(user)
-                        .schedule(schedule)
-                        .googleCalendarId(PRIMARY_CALENDAR_ID)
-                        .googleEventId(event.id())
-                        .lastSyncedAt(LocalDateTime.now())
-                        .build();
-
-                linkRepository.save(link);
-                created++;
             }
         }
+
+        log.info("Google Calendar sync finished. userId={}, date={}, fetched={}, created={}, updated={}, skipped={}",
+                userId, date, events.size(), created, updated, skipped);
 
         return GoogleCalendarSyncResult.builder()
                 .totalFetched(events.size())
@@ -129,7 +173,7 @@ public class GoogleCalendarScheduleSyncService {
             throw new IllegalArgumentException("Google 이벤트 시작 시간이 없습니다. eventId=" + event.id());
         }
 
-        // 종일 일정: Google all-day end.date는 exclusive
+        // 종일 일정: Google end.date는 exclusive
         if (start.date() != null && !start.date().isBlank()) {
             LocalDate startDate = LocalDate.parse(start.date());
 
@@ -143,7 +187,7 @@ public class GoogleCalendarScheduleSyncService {
             return new ParsedEvent(startDate, endDate, null, null);
         }
 
-        // 시간 지정 일정
+        // 시간 일정
         if (start.dateTime() != null && !start.dateTime().isBlank()) {
             OffsetDateTime startDateTime = OffsetDateTime.parse(start.dateTime());
             LocalDate startDate = startDateTime.toLocalDate();
