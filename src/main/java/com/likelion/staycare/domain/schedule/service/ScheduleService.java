@@ -9,7 +9,6 @@ import com.likelion.staycare.domain.schedule.dto.response.ScheduleDateResponse;
 import com.likelion.staycare.domain.schedule.dto.response.ScheduleResponse;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
-import com.likelion.staycare.domain.schedule.exception.ScheduleErrorCode;
 import com.likelion.staycare.domain.schedule.exception.ScheduleNotFoundException;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -44,7 +43,6 @@ public class ScheduleService {
         validateDateRange(request.startDate(), request.endDate());
 
         User user = getUser(userId);
-        validateNoOverlap(userId, request.startDate(), request.endDate(), null);
 
         Schedule schedule = scheduleRepository.save(
                 Schedule.builder()
@@ -82,7 +80,6 @@ public class ScheduleService {
 
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
-        validateNoOverlap(userId, request.startDate(), request.endDate(), scheduleId);
 
         schedule.updateSchedule(
                 request.title(),
@@ -185,7 +182,6 @@ public class ScheduleService {
             log.error("Google Calendar 일정 삭제 실패. scheduleId={}", schedule.getId(), e);
         }
 
-        // 혹시 링크가 남아 있으면 정리
         googleCalendarScheduleLinkRepository.findBySchedule_Id(schedule.getId())
                 .ifPresent(googleCalendarScheduleLinkRepository::delete);
 
@@ -209,23 +205,7 @@ public class ScheduleService {
         }
 
         if (startDate.isAfter(endDate)) {
-            throw new CustomException(ScheduleErrorCode.INVALID_SCHEDULE_DATE_RANGE);
-        }
-    }
-
-    private void validateNoOverlap(Long userId, LocalDate startDate, LocalDate endDate, Long excludeScheduleId) {
-        boolean overlapped = scheduleRepository
-                .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
-                        userId,
-                        endDate,
-                        startDate,
-                        ScheduleStatus.ACTIVE
-                )
-                .stream()
-                .anyMatch(schedule -> excludeScheduleId == null || !schedule.getId().equals(excludeScheduleId));
-
-        if (overlapped) {
-            throw new CustomException(ScheduleErrorCode.SCHEDULE_DATE_CONFLICT);
+            throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
         }
     }
 }

@@ -85,6 +85,8 @@ jobs:
               -e AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
               -e OPENWEATHER_API_KEY="${{ secrets.OPENWEATHER_API_KEY }}" \
+              -e GOOGLE_CLIENT_ID="${{ GOOGLE_CLIENT_ID }}" \
+              -e GOOGLE_CALENDAR_CLIENT_SECRET="${{ GOOGLE_CALENDAR_CLIENT_SECRET }}" \
               staycare-api:latest
 
             sleep 20
