@@ -7,21 +7,21 @@ import lombok.Builder;
 import java.util.List;
 
 @Builder
-@Schema(description = "날짜별 미션 조회 응답")
+@Schema(description = "특정 날짜의 GeneratedMission 1건 응답")
 public record MissionByDateResponse(
-        @Schema(description = "미션 ID", example = "1")
+        @Schema(description = "GeneratedMission ID. step 상세 조회 API에서 missionId로 사용", example = "55")
         Long missionId,
 
         @Schema(description = "미션 시간대", example = "MORNING")
         MissionTime missionTime,
 
-        @Schema(description = "미션 제목", example = "아침 루틴")
+        @Schema(description = "미션 제목", example = "오늘의 아침 미션")
         String title,
 
-        @Schema(description = "미션 완료 여부", example = "false")
+        @Schema(description = "전체 미션 완료 여부", example = "false")
         boolean completed,
 
-        @Schema(description = "미션 단계 목록")
+        @Schema(description = "해당 mission의 step 목록")
         List<MissionStepDetailResponse> steps
 ) {
 }

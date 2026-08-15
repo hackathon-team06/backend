@@ -4,12 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 @Builder
-@Schema(description = "미션 선택 옵션 항목")
+@Schema(description = "Swagger와 옵션 조회 API에서 공통으로 사용하는 enum 코드/라벨 응답")
 public record MissionOptionItemResponse(
-        @Schema(description = "영문 enum 값", example = "MOISTURE")
+        @Schema(description = "프론트가 요청에 그대로 사용하는 enum 코드", example = "MOISTURE")
         String code,
 
-        @Schema(description = "한글 표시명", example = "수분/보습")
+        @Schema(description = "사용자 화면과 Swagger에서 함께 보여 줄 한글 라벨", example = "수분/보습")
         String label
 ) {
 }
