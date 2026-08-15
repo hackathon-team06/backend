@@ -2,6 +2,8 @@ package com.likelion.staycare.domain.mission.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.likelion.staycare.domain.diagnosis.entity.CareMotivation;
+import com.likelion.staycare.domain.diagnosis.entity.Gender;
 import com.likelion.staycare.domain.mission.dto.openai.OpenAiResponsesRequest;
 import com.likelion.staycare.domain.mission.dto.openai.OpenAiResponsesResponse;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
@@ -42,18 +44,24 @@ public class OpenAiService {
 
     public List<String> recommendMorningRoutine(
             String age,
+            String gender,
             String skinType,
             String goal,
             String checkCycle,
+            String careMotivation,
+            String diagnosisRecommendation,
             List<MorningMissionCategory> categories,
             List<String> existingRoutines,
             int recommendationCount
     ) {
         String prompt = buildMorningRoutineRecommendationPrompt(
                 age,
+                gender,
                 skinType,
                 goal,
                 checkCycle,
+                careMotivation,
+                diagnosisRecommendation,
                 categories,
                 existingRoutines,
                 recommendationCount
@@ -246,19 +254,19 @@ public class OpenAiService {
 
     private String buildSystemPrompt() {
         return """
-                당신은 개인 맞춤 스킨케어 + 생활습관 + 웰니스 루틴 코치입니다.
+                당신은 개인 맞춤형 스킨케어 + 생활습관 + 루틴 코치입니다.
 
-                사용자의 피부 타입, 진단 결과, 루틴 수행 여부, 귀가 후 상태, 일정 맥락을 함께 고려해
+                사용자의 피부 타입, 진단 결과, 루틴 수행 여부, 귀가 후 상태, 일정 맥락을 고려해
                 오늘 실제로 수행 가능한 피부관리 및 웰니스 미션을 추천합니다.
 
                 반드시 다음 규칙을 지킵니다.
                 - 한국어로만 작성합니다.
                 - JSON만 출력합니다.
                 - Markdown, 코드블록, 설명 문장은 출력하지 않습니다.
-                - 의료 진단, 질병 치료 단정, 처방 제안은 하지 않습니다.
-                - 일반적인 피부관리, 생활습관, 웰니스 수준의 실행 가능한 행동만 제안합니다.
+                - 의료 진단, 질병 치료 확정, 처방 제안은 하지 않습니다.
+                - 일반적인 피부관리, 생활습관, 웰니스에서 실행 가능한 행동만 제안합니다.
                 - 일정 자체를 수행하라는 미션은 생성하지 않습니다.
-                - 저녁 미션 step은 정확히 3개만 생성합니다.
+                - 저녁미션 step은 정확히 3개만 생성합니다.
                 - 아침 루틴 추천은 매일 반복 가능한 고정 루틴 위주로 추천합니다.
                 - 이미 유지 중인 루틴과 중복되는 추천은 피합니다.
                 """;
@@ -266,9 +274,12 @@ public class OpenAiService {
 
     private String buildMorningRoutineRecommendationPrompt(
             String age,
+            String gender,
             String skinType,
             String goal,
             String checkCycle,
+            String careMotivation,
+            String diagnosisRecommendation,
             List<MorningMissionCategory> categories,
             List<String> existingRoutines,
             int recommendationCount
@@ -281,23 +292,28 @@ public class OpenAiService {
                 [고정 아침 루틴 추천]
 
                 - 나이: %s
+                - 성별: %s
                 - 피부 타입: %s
                 - 목표(goal): %s
                 - 관리 주기(checkCycle): %s
+                - 관리 동기(careMotivation): %s
+                - 최근 진단 추천 요약: %s
                 - 원하는 카테고리: %s
                 - 현재 유지 중인 루틴: %s
                 - 필요한 추천 개수: %d개
-
                 매일 반복 가능한 고정 아침 루틴 후보를 추천합니다.
-                피부관리뿐 아니라 위생, 수분, 식습관, 생활습관 수준의 아침 루틴도 포함할 수 있습니다.
+                피부관리뿐 아니라 위생, 수분, 영양, 생활습관, 웰니스 관점의 아침 루틴도 포함할 수 있습니다.
                 현재 유지 중인 루틴과 중복되는 표현은 피합니다.
                 recommendations 배열에는 정확히 %d개의 문자열만 넣습니다.
                 각 항목은 짧고 바로 실천 가능한 문장으로 작성합니다.
                 """.formatted(
                 defaultValue(age),
+                defaultValue(gender),
                 defaultValue(skinType),
                 defaultValue(goal),
                 defaultValue(checkCycle),
+                defaultValue(careMotivation),
+                defaultValue(diagnosisRecommendation),
                 categoryText,
                 existingRoutines == null || existingRoutines.isEmpty() ? "없음" : String.join(", ", existingRoutines),
                 recommendationCount,
@@ -307,7 +323,7 @@ public class OpenAiService {
 
     private String buildEveningPrompt(EveningMissionRequest request) {
         return """
-                [저녁 미션 생성]
+                [저녁미션 생성]
 
                 - 나이: %s
                 - 피부 타입: %s
@@ -318,9 +334,9 @@ public class OpenAiService {
                 - 오늘 아침 미션 상태: %s
                 - 피부 타입 참고: %s
 
-                사용자가 오늘 저녁에 실제로 할 수 있는 피부관리/웰니스 미션을 추천합니다.
+                사용자가 오늘 저녁에 실제로 할 수 있는 피부관리 웰니스 미션을 추천합니다.
                 아침에 완료한 루틴은 과도하게 반복하지 말고, 미완료 항목이나 오늘 컨디션에 맞춰 보완합니다.
-                오늘 일정 맥락이 있다면 외부활동, 이동, 피로, 건조, 자극 가능성을 자연스럽게 고려합니다.
+                오늘 일정 맥락이 있다면 실내 활동, 이동, 피로, 건조, 자극 가능성을 자연스럽게 고려합니다.
                 steps 배열에는 정확히 3개의 문자열만 넣습니다.
                 일정 수행 자체를 step으로 만들지 않습니다.
                 """.formatted(
@@ -375,13 +391,21 @@ public class OpenAiService {
         }
 
         return switch (skinType) {
-            case "건성", "DRY" -> "건조함과 보습 관리 중심";
-            case "지성", "OILY" -> "과도한 유분과 산뜻한 관리 중심";
-            case "복합성", "COMBINATION" -> "부위별 유수분 균형 관리 중심";
-            case "수부지", "DEHYDRATED" -> "겉 유분과 속 수분 부족을 함께 고려한 유수분 균형 관리 중심";
-            case "중성", "NORMAL" -> "기본적인 피부 컨디션 유지 중심";
+            case "건성", "DRY" -> "건조함과 보습 관리 중점";
+            case "지성", "OILY" -> "과도한 유분과 번들거림 관리 중점";
+            case "복합성", "COMBINATION" -> "부위별 유수분 균형 관리 중점";
+            case "수부지", "DEHYDRATED" -> "겉유분과 속건조를 함께 고려한 유수분 균형 관리 중점";
+            case "중성", "NORMAL" -> "기본적인 피부 컨디션 유지 중점";
             default -> skinType;
         };
+    }
+
+    public String getGenderLabel(Gender gender) {
+        return gender == null ? "없음" : gender.getLabel();
+    }
+
+    public String getCareMotivationLabel(CareMotivation careMotivation) {
+        return careMotivation == null ? "없음" : careMotivation.getLabel();
     }
 
     private String defaultValue(String value) {

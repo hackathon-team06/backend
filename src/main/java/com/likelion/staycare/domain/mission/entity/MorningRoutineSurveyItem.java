@@ -1,6 +1,6 @@
 package com.likelion.staycare.domain.mission.entity;
 
-import com.likelion.staycare.domain.mission.entity.enums.MorningRoutineItemSource;
+import com.likelion.staycare.domain.mission.entity.enums.MorningRoutineSurveyOption;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,53 +21,39 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @Table(
-        name = "morning_routine_items",
+        name = "morning_routine_survey_items",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_morning_routine_item_order",
-                columnNames = {"morning_routine_id", "item_order"}
+                name = "uk_morning_routine_survey_item_order",
+                columnNames = {"morning_routine_survey_id", "item_order"}
         )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MorningRoutineItem {
+public class MorningRoutineSurveyItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "morning_routine_item_id")
+    @Column(name = "morning_routine_survey_item_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "morning_routine_id", nullable = false)
-    private MorningRoutine morningRoutine;
-
-    @Column(nullable = false, length = 300)
-    private String content;
-
-    @Column(length = 100)
-    private String category;
+    @JoinColumn(name = "morning_routine_survey_id", nullable = false)
+    private MorningRoutineSurvey morningRoutineSurvey;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private MorningRoutineItemSource source;
+    @Column(name = "option_code", nullable = false, length = 50)
+    private MorningRoutineSurveyOption optionCode;
 
     @Column(name = "item_order", nullable = false)
     private int itemOrder;
 
     @Builder
-    public MorningRoutineItem(
-            MorningRoutine morningRoutine,
-            String content,
-            String category,
-            MorningRoutineItemSource source,
+    public MorningRoutineSurveyItem(
+            MorningRoutineSurvey morningRoutineSurvey,
+            MorningRoutineSurveyOption optionCode,
             int itemOrder
     ) {
-        this.morningRoutine = morningRoutine;
-        this.content = content;
-        this.category = category;
-        this.source = source;
-        this.itemOrder = itemOrder;
-    }
-
-    public void updateItemOrder(int itemOrder) {
+        this.morningRoutineSurvey = morningRoutineSurvey;
+        this.optionCode = optionCode;
         this.itemOrder = itemOrder;
     }
 }
