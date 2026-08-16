@@ -21,4 +21,10 @@ public interface GeneratedMissionRepository extends JpaRepository<GeneratedMissi
             User user,
             LocalDate missionDate
     );
+
+    List<GeneratedMission> findAllByUserAndMissionDateBetweenOrderByMissionDateAscMissionTimeAsc(
+            User user,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }
