@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class ScheduleService {
     @Transactional
     public ScheduleResponse createSchedule(Long userId, ScheduleCreateRequest request) {
         validateDateRange(request.startDate(), request.endDate());
+        validateTimeRange(request.startDate(), request.endDate(), request.startTime(), request.endTime());
 
         User user = getUser(userId);
 
@@ -77,6 +79,7 @@ public class ScheduleService {
     @Transactional
     public ScheduleResponse updateSchedule(Long userId, Long scheduleId, ScheduleUpdateRequest request) {
         validateDateRange(request.startDate(), request.endDate());
+        validateTimeRange(request.startDate(), request.endDate(), request.startTime(), request.endTime());
 
         getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
@@ -108,8 +111,10 @@ public class ScheduleService {
         return ScheduleResponse.from(schedule);
     }
 
-    public ScheduleResponse getTodaySchedule(Long userId) {
+    public List<ScheduleResponse> getTodaySchedule(Long userId) {
         LocalDate today = LocalDate.now(KOREA_ZONE_ID);
+
+        getUser(userId);
 
         try {
             googleCalendarScheduleSyncService.syncDate(userId, today);
@@ -118,14 +123,15 @@ public class ScheduleService {
         }
 
         return scheduleRepository
-                .findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
                         userId,
                         today,
                         today,
                         ScheduleStatus.ACTIVE
                 )
+                .stream()
                 .map(ScheduleResponse::from)
-                .orElse(null);
+                .toList();
     }
 
     public List<ScheduleDateResponse> getSchedulesByDate(Long userId, LocalDate date) {
@@ -159,7 +165,7 @@ public class ScheduleService {
         try {
             scheduleRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            log.error("Schedule 취소 상태 반영 실패. scheduleId={}", scheduleId, e);
+            log.error("Schedule 취소 상태 반영 실패. scheduleId={}, userId={}", scheduleId, userId, e);
             throw e;
         }
 
@@ -174,6 +180,7 @@ public class ScheduleService {
 
     @Transactional
     public void deleteSchedule(Long userId, Long scheduleId) {
+        getUser(userId);
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
 
         try {
@@ -182,11 +189,23 @@ public class ScheduleService {
             log.error("Google Calendar 일정 삭제 실패. scheduleId={}", schedule.getId(), e);
         }
 
+        /*
+         * 주의:
+         * googleCalendarSchedulePushService.deleteGoogleEventIfLinked(schedule)
+         * 내부에서 link까지 삭제하고 있다면 아래 삭제 로직과 책임이 중복됩니다.
+         * 현재 이 ScheduleService가 link 삭제 책임을 가진다는 전제로 유지합니다.
+         */
         googleCalendarScheduleLinkRepository.findBySchedule_Id(schedule.getId())
                 .ifPresent(googleCalendarScheduleLinkRepository::delete);
 
-        scheduleRepository.delete(schedule);
-        scheduleRepository.flush();
+        try {
+            scheduleRepository.delete(schedule);
+            scheduleRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            log.error("Schedule 삭제 실패 - DB 제약조건 오류. scheduleId={}, userId={}",
+                    scheduleId, userId, e);
+            throw e;
+        }
     }
 
     private User getUser(Long userId) {
@@ -206,6 +225,19 @@ public class ScheduleService {
 
         if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
+        }
+    }
+
+    private void validateTimeRange(LocalDate startDate, LocalDate endDate,
+                                   LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return;
+        }
+
+        if (startDate != null && endDate != null
+                && startDate.equals(endDate)
+                && endTime.isBefore(startTime)) {
+            throw new IllegalArgumentException("같은 날짜 일정에서는 종료 시간이 시작 시간보다 빠를 수 없습니다.");
         }
     }
 }

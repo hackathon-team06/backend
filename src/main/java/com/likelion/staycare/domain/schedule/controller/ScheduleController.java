@@ -64,7 +64,7 @@ public class ScheduleController {
 
     @Operation(summary = "오늘 일정 조회", description = "오늘 날짜가 범위 안에 포함되는 활성 일정을 조회합니다.")
     @GetMapping("/today")
-    public ResponseEntity<ScheduleResponse> getTodaySchedule(
+    public ResponseEntity<List<ScheduleResponse>> getTodaySchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ResponseEntity.ok(scheduleService.getTodaySchedule(userDetails.getUserId()));
