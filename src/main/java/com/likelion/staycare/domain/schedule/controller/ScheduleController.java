@@ -7,6 +7,9 @@ import com.likelion.staycare.domain.schedule.dto.response.ScheduleResponse;
 import com.likelion.staycare.domain.schedule.service.ScheduleService;
 import com.likelion.staycare.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +37,62 @@ public class ScheduleController {
 
     private final ScheduleService scheduleService;
 
-    @Operation(summary = "일정 등록", description = "여러 날짜 범위를 포함하는 일정을 등록합니다.")
+    @Operation(
+            summary = "일정 등록",
+            description = """
+                여러 날짜 범위를 포함하는 일정을 등록합니다.
+                                
+                companion 허용값:
+                - ALONE
+                - FAMILY
+                - FRIEND
+                - LOVER
+                - COWORKER
+                - ACQUAINTANCE
+                                
+                category 허용값:
+                - SELF_CARE
+                - MEETING
+                - DATE
+                - TRAVEL
+                - EVENT
+                - CEREMONY
+                - WEDDING
+                - DRINKING
+                - TALK
+                """
+    )
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            description = """
+                일정 등록 요청 바디
+                
+                companion:
+                ALONE, FAMILY, FRIEND, LOVER, COWORKER, ACQUAINTANCE
+                
+                category:
+                SELF_CARE, MEETING, DATE, TRAVEL, EVENT, CEREMONY, WEDDING, DRINKING, TALK
+                """,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ScheduleCreateRequest.class),
+                    examples = {
+                            @ExampleObject(
+                                    name = "일정 등록 예시",
+                                    value = """
+                                        {
+                                          "startDate": "2026-08-15",
+                                          "endDate": "2026-08-22",
+                                          "startTime": "10:00",
+                                          "endTime": "20:00",
+                                          "companion": "FRIEND",
+                                          "category": "TRAVEL"
+                                        }
+                                        """
+                            )
+                    }
+            )
+    )
     @PostMapping
     public ResponseEntity<ScheduleResponse> createSchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails,
