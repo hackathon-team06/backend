@@ -16,6 +16,10 @@ spring:
 
 app:
   frontend-url: https://hackathon-staycare.netlify.app
+  shopping:
+    image-migration:
+      enabled: false
+      source-prefix: https://image.oliveyoung.co.kr/
 
 
 logging:
