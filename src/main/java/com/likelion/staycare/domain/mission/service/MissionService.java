@@ -19,6 +19,8 @@ import com.likelion.staycare.domain.mission.dto.response.MorningRoutineRecommend
 import com.likelion.staycare.domain.mission.dto.response.MorningRoutineResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningRoutineSurveyOptionsResponse;
 import com.likelion.staycare.domain.mission.dto.response.TodayMissionResponse;
+import com.likelion.staycare.domain.mission.dto.response.WeeklyMissionDayResponse;
+import com.likelion.staycare.domain.mission.dto.response.WeeklyMissionStatusResponse;
 import com.likelion.staycare.domain.mission.entity.DailySkinCheck;
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
@@ -57,9 +59,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -365,6 +369,35 @@ public class MissionService {
                 .toList();
     }
 
+    public WeeklyMissionStatusResponse getWeeklyMissionStatus(Long userId, LocalDate date) {
+        User user = getUser(userId);
+        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = weekStart.plusDays(6);
+        LocalDate today = getCurrentDate();
+
+        Map<LocalDate, Set<MissionTime>> completedMissionTimesByDate = generatedMissionRepository
+                .findAllByUserAndMissionDateBetweenOrderByMissionDateAscMissionTimeAsc(user, weekStart, weekEnd)
+                .stream()
+                .filter(mission -> mission.getStatus() == MissionStatus.COMPLETED)
+                .collect(Collectors.groupingBy(
+                        GeneratedMission::getMissionDate,
+                        Collectors.mapping(GeneratedMission::getMissionTime, Collectors.toSet())
+                ));
+
+        List<WeeklyMissionDayResponse> days = weekStart.datesUntil(weekEnd.plusDays(1))
+                .map(currentDate -> WeeklyMissionDayResponse.builder()
+                        .date(currentDate)
+                        .completed(isCompletedDay(currentDate, today, completedMissionTimesByDate))
+                        .build())
+                .toList();
+
+        return WeeklyMissionStatusResponse.builder()
+                .startDate(weekStart)
+                .endDate(weekEnd)
+                .days(days)
+                .build();
+    }
+
     @Transactional
     public void completeStep(Long userId, Long stepId) {
         try {
@@ -593,6 +626,21 @@ public class MissionService {
 
     private boolean isPointRewardStep(GeneratedMissionStep step) {
         return step.getStepOrder() <= MORNING_ROUTINE_SIZE;
+    }
+
+    private boolean isCompletedDay(
+            LocalDate date,
+            LocalDate today,
+            Map<LocalDate, Set<MissionTime>> completedMissionTimesByDate
+    ) {
+        if (date.isAfter(today)) {
+            return false;
+        }
+
+        Set<MissionTime> completedMissionTimes = completedMissionTimesByDate.get(date);
+        return completedMissionTimes != null
+                && completedMissionTimes.contains(MissionTime.MORNING)
+                && completedMissionTimes.contains(MissionTime.EVENING);
     }
 
     private MorningMissionResponse toMorningMissionResponse(GeneratedMission mission) {

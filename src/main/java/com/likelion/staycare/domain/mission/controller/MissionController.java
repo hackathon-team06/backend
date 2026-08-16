@@ -13,12 +13,14 @@ import com.likelion.staycare.domain.mission.dto.response.MorningRoutineRecommend
 import com.likelion.staycare.domain.mission.dto.response.MorningRoutineResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningRoutineSurveyOptionsResponse;
 import com.likelion.staycare.domain.mission.dto.response.TodayMissionResponse;
+import com.likelion.staycare.domain.mission.dto.response.WeeklyMissionStatusResponse;
 import com.likelion.staycare.domain.mission.service.MissionService;
 import com.likelion.staycare.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -791,5 +793,78 @@ public class MissionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
         return ResponseEntity.ok(missionService.getMissionsByDate(userId, date));
+    }
+    @Operation(
+            summary = "주간 미션 완료 현황 조회",
+            operationId = "mission94GetWeeklyMissionStatus",
+            description = """
+                    기준 날짜가 포함된 주의 월요일부터 일요일까지 주간 미션 완료 현황을 조회합니다.
+                    아침(MORNING)과 저녁(EVENING) 미션이 모두 COMPLETED인 날만 completed=true 입니다.
+                    둘 중 하나라도 미완료, FAILED, 미생성이면 completed=false 입니다.
+                    미래 날짜는 항상 completed=false 입니다.
+                    응답 days는 항상 월요일부터 일요일까지 7개를 반환합니다.
+                    이 API는 조회 전용이며 GeneratedMission을 생성하지 않습니다.
+                    프론트 주간 체크 UI에서 completed=true면 체크 표시, false면 빈 원으로 사용할 수 있습니다.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "주간 미션 완료 현황 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = WeeklyMissionStatusResponse.class),
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "startDate": "2026-07-27",
+                                              "endDate": "2026-08-02",
+                                              "days": [
+                                                {
+                                                  "date": "2026-07-27",
+                                                  "completed": true
+                                                },
+                                                {
+                                                  "date": "2026-07-28",
+                                                  "completed": true
+                                                },
+                                                {
+                                                  "date": "2026-07-29",
+                                                  "completed": true
+                                                },
+                                                {
+                                                  "date": "2026-07-30",
+                                                  "completed": false
+                                                },
+                                                {
+                                                  "date": "2026-07-31",
+                                                  "completed": false
+                                                },
+                                                {
+                                                  "date": "2026-08-01",
+                                                  "completed": false
+                                                },
+                                                {
+                                                  "date": "2026-08-02",
+                                                  "completed": false
+                                                }
+                                              ]
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    @GetMapping("/week")
+    public ResponseEntity<WeeklyMissionStatusResponse> getWeeklyMissionStatus(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(
+                    description = "기준 날짜. 이 날짜가 포함된 주의 월요일부터 일요일까지 조회합니다.",
+                    example = "2026-07-30",
+                    schema = @Schema(type = "string", format = "date")
+            )
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.ok(missionService.getWeeklyMissionStatus(userDetails.getUserId(), date));
     }
 }
