@@ -9,4 +9,9 @@ import java.util.List;
 public interface GeneratedMissionStepRepository extends JpaRepository<GeneratedMissionStep, Long> {
 
     List<GeneratedMissionStep> findByGeneratedMissionOrderByStepOrderAsc(GeneratedMission mission);
+
+    List<GeneratedMissionStep> findByGeneratedMissionAndStepOrderGreaterThanOrderByStepOrderAsc(
+            GeneratedMission mission,
+            int stepOrder
+    );
 }

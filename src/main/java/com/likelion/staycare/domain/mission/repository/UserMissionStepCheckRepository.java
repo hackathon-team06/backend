@@ -1,6 +1,7 @@
 package com.likelion.staycare.domain.mission.repository;
 
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
+import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
 import com.likelion.staycare.domain.mission.entity.UserMissionStepCheck;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,4 +13,6 @@ public interface UserMissionStepCheckRepository extends JpaRepository<UserMissio
     List<UserMissionStepCheck> findByGeneratedMissionStepGeneratedMission(GeneratedMission mission);
 
     Optional<UserMissionStepCheck> findByGeneratedMissionStepId(Long stepId);
+
+    void deleteAllByGeneratedMissionStepIn(List<GeneratedMissionStep> steps);
 }
