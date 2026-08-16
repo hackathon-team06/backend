@@ -47,6 +47,8 @@ import com.likelion.staycare.domain.mission.repository.MorningRoutineSurveyRepos
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
 import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
+import com.likelion.staycare.domain.schedule.entity.enums.Companion;
+import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -78,11 +80,11 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MissionService {
 
-    private static final String DEFAULT_VALUE = "?놁쓬";
+    private static final String DEFAULT_VALUE = "해당없음";
     private static final String EMPTY_TIP = "";
-    private static final String MORNING_TITLE = "?ㅻ뒛 ?꾩묠 猷⑦떞";
-    private static final String MORNING_DESCRIPTION = "?ъ슜?먭? 理쒖쥌 ?좏깮???ㅼ젣 ?꾩묠 誘몄뀡?낅땲??";
-    private static final String EVENING_FALLBACK_TITLE = "?ㅻ뒛 ???耳??誘몄뀡";
+    private static final String MORNING_TITLE = "오늘의 아침 미션";
+    private static final String MORNING_DESCRIPTION = "확정한 고정 아침 미션을 오늘 아침 실천할 수 있도록 생성한 미션입니다.";
+    private static final String EVENING_FALLBACK_TITLE = "오늘 저녁 회복 미션";
     private static final String PROMPT_VERSION = "v2";
     private static final int MORNING_ROUTINE_SIZE = 3;
     private static final int MORNING_RECOMMENDATION_COUNT = 3;
@@ -104,12 +106,14 @@ public class MissionService {
     private final PointService pointService;
 
     private String buildScheduleStep(Schedule schedule) {
-        String category = schedule.getCategory() == null ? "일정" : schedule.getCategory().name();
-        String companion = schedule.getCompanion() == null ? "동행자 없음" : schedule.getCompanion().name();
+        if (schedule.getCategory() == ScheduleCategory.WEDDING) {
+            return getCompanionSubjectLabel(schedule.getCompanion()) + " 결혼식 참석하기";
+        }
 
-        return category + " 일정 소화하기"
-                + " (" + companion + ")";
+        return getCompanionActionLabel(schedule.getCompanion()) + " "
+                + getScheduleCategoryActionLabel(schedule.getCategory());
     }
+
 
 
     public MissionOptionsResponse getMissionOptions() {
@@ -269,6 +273,7 @@ public class MissionService {
     public MorningMissionResponse generateMorningMission(Long userId) {
         User user = getUser(userId);
         GeneratedMission mission = getOrCreateMorningMission(user, getCurrentDate(), true);
+        syncScheduleDerivedStep(user.getId(), mission);
         return toMorningMissionResponse(mission);
     }
 
@@ -282,6 +287,7 @@ public class MissionService {
                 .orElse(null);
 
         if (existingMission != null) {
+            syncScheduleDerivedStep(userId, existingMission);
             return toEveningMissionResponse(existingMission);
         }
 
@@ -353,10 +359,16 @@ public class MissionService {
         if (morningMission == null && isAfterMorningWindow()) {
             morningMission = getOrCreateMorningMission(user, today, true);
         }
+        if (morningMission != null) {
+            syncScheduleDerivedStep(userId, morningMission);
+        }
 
         GeneratedMission eveningMission = generatedMissionRepository
                 .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
                 .orElse(null);
+        if (eveningMission != null) {
+            syncScheduleDerivedStep(userId, eveningMission);
+        }
 
         return TodayMissionResponse.builder()
                 .morningMission(morningMission == null ? null : toMorningMissionResponse(morningMission))
@@ -582,6 +594,49 @@ public class MissionService {
         return generatedMissionStepRepository.saveAll(generatedMissionSteps);
     }
 
+    private void syncScheduleDerivedStep(Long userId, GeneratedMission mission) {
+        List<GeneratedMissionStep> extraSteps = generatedMissionStepRepository
+                .findByGeneratedMissionAndStepOrderGreaterThanOrderByStepOrderAsc(mission, MORNING_ROUTINE_SIZE);
+
+        String scheduleStep = scheduleRepository
+                .findFirstByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
+                        userId,
+                        mission.getMissionDate(),
+                        mission.getMissionDate(),
+                        ScheduleStatus.ACTIVE
+                )
+                .map(this::buildScheduleStep)
+                .orElse(null);
+
+        if (scheduleStep == null) {
+            if (!extraSteps.isEmpty()) {
+                userMissionStepCheckRepository.deleteAllByGeneratedMissionStepIn(extraSteps);
+                generatedMissionStepRepository.deleteAllInBatch(extraSteps);
+            }
+            return;
+        }
+
+        if (extraSteps.isEmpty()) {
+            generatedMissionStepRepository.save(
+                    GeneratedMissionStep.builder()
+                            .generatedMission(mission)
+                            .content(scheduleStep)
+                            .stepOrder(MORNING_ROUTINE_SIZE + 1)
+                            .build()
+            );
+            return;
+        }
+
+        GeneratedMissionStep scheduleDerivedStep = extraSteps.get(0);
+        scheduleDerivedStep.updateContent(scheduleStep);
+
+        if (extraSteps.size() > 1) {
+            List<GeneratedMissionStep> redundantSteps = extraSteps.subList(1, extraSteps.size());
+            userMissionStepCheckRepository.deleteAllByGeneratedMissionStepIn(redundantSteps);
+            generatedMissionStepRepository.deleteAllInBatch(redundantSteps);
+        }
+    }
+
     private void validateEveningMissionTime() {
         if (!isAfterMorningWindow()) {
             throw new CustomException(MissionErrorCode.EVENING_MISSION_TIME_ONLY);
@@ -723,12 +778,12 @@ public class MissionService {
     ) {
         UserMissionStepCheck check = checksByStepId.get(step.getId());
         if (check != null && check.isChecked()) {
-            return "?꾨즺";
+            return "완료";
         }
         if (mission.getStatus() == MissionStatus.FAILED) {
-            return "誘몄셿猷??쒓컙 留뚮즺)";
+            return "수행 시간 종료로 완료 불가";
         }
-        return "誘몄셿猷?";
+        return "미완료";
     }
 
     private String getTodayScheduleContext(Long userId, LocalDate missionDate) {
@@ -743,11 +798,91 @@ public class MissionService {
     }
 
     private String buildScheduleContext(Schedule schedule) {
-        return
-                 ", ?쒖옉?? " + schedule.getStartDate()
-                + ", 醫낅즺?? " + schedule.getEndDate()
-                + ", ?숉뻾?? " + schedule.getCompanion()
-                + ", ?쇱젙 移댄뀒怨좊━: " + schedule.getCategory();
+        return "동행자: " + getCompanionContextLabel(schedule.getCompanion())
+                + ", 일정 카테고리: " + getScheduleCategoryContextLabel(schedule.getCategory())
+                + ", 시작일: " + schedule.getStartDate()
+                + ", 종료일: " + schedule.getEndDate();
+    }
+
+    private String getCompanionContextLabel(Companion companion) {
+        if (companion == null) {
+            return DEFAULT_VALUE;
+        }
+
+        return switch (companion) {
+            case ALONE -> "혼자";
+            case FAMILY -> "가족";
+            case FRIEND -> "친구";
+            case LOVER -> "연인";
+            case COWORKER -> "직장동료";
+            case ACQUAINTANCE -> "지인";
+        };
+    }
+
+    private String getCompanionSubjectLabel(Companion companion) {
+        if (companion == null) {
+            return "일정";
+        }
+
+        return switch (companion) {
+            case ALONE -> "혼자";
+            case FAMILY -> "가족";
+            case FRIEND -> "친구";
+            case LOVER -> "연인";
+            case COWORKER -> "직장동료";
+            case ACQUAINTANCE -> "지인";
+        };
+    }
+
+    private String getCompanionActionLabel(Companion companion) {
+        if (companion == null) {
+            return "일정";
+        }
+
+        return switch (companion) {
+            case ALONE -> "혼자";
+            case FAMILY -> "가족과";
+            case FRIEND -> "친구와";
+            case LOVER -> "연인과";
+            case COWORKER -> "직장동료와";
+            case ACQUAINTANCE -> "지인과";
+        };
+    }
+
+    private String getScheduleCategoryContextLabel(ScheduleCategory category) {
+        if (category == null) {
+            return "일정";
+        }
+
+        return switch (category) {
+            case SELF_CARE -> "자기관리";
+            case MEETING -> "미팅";
+            case DATE -> "데이트";
+            case TRAVEL -> "여행";
+            case EVENT -> "이벤트";
+            case CEREMONY -> "경조사";
+            case WEDDING -> "결혼식";
+            case DRINKING -> "술자리 모임";
+            case TALK -> "친목·수다";
+        };
+    }
+
+    private String getScheduleCategoryActionLabel(ScheduleCategory category) {
+        if (category == null) {
+            return "일정 소화하기";
+        }
+
+        return switch (category) {
+            case SELF_CARE -> "자기관리 일정 실천하기";
+            case MEETING -> "미팅 일정 소화하기";
+            case DATE -> "데이트하기";
+            case TRAVEL -> "여행 일정 소화하기";
+            case EVENT -> "이벤트 참여하기";
+            case CEREMONY -> "경조사 참석하기";
+            case WEDDING -> "결혼식 참석하기";
+            case DRINKING -> "술자리 모임 참석하기";
+            case TALK -> "친목·수다 일정 보내기";
+        };
     }
 
     private String joinEveningConditions(Set<EveningCondition> conditions) {

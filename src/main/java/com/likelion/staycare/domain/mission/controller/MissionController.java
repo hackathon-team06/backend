@@ -63,7 +63,7 @@ public class MissionController {
     private final MissionService missionService;
 
     @Operation(
-            summary = "아침 생활 루틴 설문 선택지 조회",
+            summary = "1.아침 생활 루틴 설문 선택지 조회",
             operationId = "mission01GetMorningRoutineSurveyOptions",
             description = """
                     회원가입 또는 진단 완료 후, 최초 생활 루틴 설문을 시작하기 전에 호출합니다.
@@ -103,7 +103,7 @@ public class MissionController {
     }
 
     @Operation(
-            summary = "최초 생활 루틴 설문 저장",
+            summary = "2. 최초 생활 루틴 설문 저장",
             operationId = "mission02SaveMorningRoutineSurvey",
             description = """
                     최초 1회만 저장하는 생활 루틴 설문 API입니다.
@@ -161,7 +161,7 @@ public class MissionController {
     }
 
     @Operation(
-            summary = "아침 고정 미션 AI 추천",
+            summary = "3.아침 고정 미션 AI 추천",
             operationId = "mission03RecommendMorningRoutine",
             description = """
                     최초 아침 미션 추천과, 기존 고정 미션 삭제 후 부족한 개수만큼 재추천받는 경우 모두 사용하는 API입니다.
@@ -234,7 +234,7 @@ public class MissionController {
     }
 
     @Operation(
-            summary = "아침 고정 미션 선택 및 확정",
+            summary = "4.아침 고정 미션 선택 및 확정",
             operationId = "mission04SaveMorningRoutine",
             description = """
                     AI 추천 결과 또는 사용자가 직접 작성한 문구를 실제 고정 아침 미션으로 저장합니다.
