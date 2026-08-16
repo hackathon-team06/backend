@@ -33,6 +33,10 @@ cors:
     - http://localhost:8080
     - http://localhost:5173
     - https://api.staycare.shop
+    - https://hackathon-staycare.netlify.app
+
+app:
+  frontend-url: https://hackathon-staycare.netlify.app
 
 firebase:
   service-account-b64: ${FIREBASE_SERVICE_ACCOUNT_B64:}
@@ -50,7 +54,6 @@ cloud:
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-5.5
-
 
 weather:
   openweather:
