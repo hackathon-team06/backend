@@ -22,6 +22,10 @@ logging:
     root: info
     org.hibernate.SQL: warn
 
+app:
+  frontend-url: https://hackathon-staycare.netlify.app
+
+
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-5.5

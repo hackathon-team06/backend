@@ -14,6 +14,10 @@ spring:
     init:
       mode: never
 
+app:
+  frontend-url: https://hackathon-staycare.netlify.app
+
+
 logging:
   level:
     org.hibernate.SQL: debug
