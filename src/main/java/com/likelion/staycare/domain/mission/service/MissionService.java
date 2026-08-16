@@ -47,6 +47,8 @@ import com.likelion.staycare.domain.mission.repository.MorningRoutineSurveyRepos
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
 import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
+import com.likelion.staycare.domain.schedule.entity.enums.Companion;
+import com.likelion.staycare.domain.schedule.entity.enums.ScheduleCategory;
 import com.likelion.staycare.domain.schedule.entity.enums.ScheduleStatus;
 import com.likelion.staycare.domain.schedule.repository.ScheduleRepository;
 import com.likelion.staycare.domain.user.entity.User;
@@ -78,11 +80,11 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MissionService {
 
-    private static final String DEFAULT_VALUE = "?놁쓬";
+    private static final String DEFAULT_VALUE = "????";
     private static final String EMPTY_TIP = "";
-    private static final String MORNING_TITLE = "?ㅻ뒛 ?꾩묠 猷⑦떞";
-    private static final String MORNING_DESCRIPTION = "?ъ슜?먭? 理쒖쥌 ?좏깮???ㅼ젣 ?꾩묠 誘몄뀡?낅땲??";
-    private static final String EVENING_FALLBACK_TITLE = "?ㅻ뒛 ???耳??誘몄뀡";
+    private static final String MORNING_TITLE = "??? ?? ??";
+    private static final String MORNING_DESCRIPTION = "??? ?? ?? ??? ?? ?? ??? ? ??? ??? ?????.";
+    private static final String EVENING_FALLBACK_TITLE = "?? ?? ?? ??";
     private static final String PROMPT_VERSION = "v2";
     private static final int MORNING_ROUTINE_SIZE = 3;
     private static final int MORNING_RECOMMENDATION_COUNT = 3;
@@ -713,12 +715,12 @@ public class MissionService {
     ) {
         UserMissionStepCheck check = checksByStepId.get(step.getId());
         if (check != null && check.isChecked()) {
-            return "?꾨즺";
+            return "??";
         }
         if (mission.getStatus() == MissionStatus.FAILED) {
-            return "誘몄셿猷??쒓컙 留뚮즺)";
+            return "?? ?? ??? ?? ??";
         }
-        return "誘몄셿猷?";
+        return "雅?퍔瑗띰㎖???뺤??";
     }
 
     private String getTodayScheduleContext(Long userId, LocalDate missionDate) {
@@ -733,17 +735,74 @@ public class MissionService {
     }
 
     private String buildScheduleContext(Schedule schedule) {
-        return "?쇱젙 ?쒕ぉ: " + schedule.getTitle()
-                + ", ?쒖옉?? " + schedule.getStartDate()
-                + ", 醫낅즺?? " + schedule.getEndDate()
-                + ", ?숉뻾?? " + schedule.getCompanion()
-                + ", ?쇱젙 移댄뀒怨좊━: " + schedule.getCategory();
+        return "???: " + getCompanionContextLabel(schedule.getCompanion())
+                + ", ?? ????: " + getScheduleCategoryContextLabel(schedule.getCategory())
+                + ", ???: " + schedule.getStartDate()
+                + ", ???: " + schedule.getEndDate();
     }
-
     private String buildScheduleStep(Schedule schedule) {
-        return schedule.getTitle() + " ?쇱젙 ?뚰솕?섍린";
+        if (schedule.getCategory() == ScheduleCategory.WEDDING) {
+            return getCompanionSubjectLabel(schedule.getCompanion()) + " ??? ????";
+        }
+        return getCompanionActionLabel(schedule.getCompanion()) + " "
+                + getScheduleCategoryActionLabel(schedule.getCategory());
     }
-
+    private String getCompanionContextLabel(Companion companion) {
+        return switch (companion) {
+            case ALONE -> "??";
+            case FAMILY -> "??";
+            case FRIEND -> "??";
+            case LOVER -> "??";
+            case COWORKER -> "????";
+            case ACQUAINTANCE -> "??";
+        };
+    }
+    private String getCompanionSubjectLabel(Companion companion) {
+        return switch (companion) {
+            case ALONE -> "??";
+            case FAMILY -> "??";
+            case FRIEND -> "??";
+            case LOVER -> "??";
+            case COWORKER -> "????";
+            case ACQUAINTANCE -> "??";
+        };
+    }
+    private String getCompanionActionLabel(Companion companion) {
+        return switch (companion) {
+            case ALONE -> "??";
+            case FAMILY -> "???";
+            case FRIEND -> "???";
+            case LOVER -> "???";
+            case COWORKER -> "?????";
+            case ACQUAINTANCE -> "???";
+        };
+    }
+    private String getScheduleCategoryContextLabel(ScheduleCategory category) {
+        return switch (category) {
+            case SELF_CARE -> "????";
+            case MEETING -> "??";
+            case DATE -> "???";
+            case TRAVEL -> "??";
+            case EVENT -> "???";
+            case CEREMONY -> "???";
+            case WEDDING -> "???";
+            case DRINKING -> "??? ??";
+            case TALK -> "?????";
+        };
+    }
+    private String getScheduleCategoryActionLabel(ScheduleCategory category) {
+        return switch (category) {
+            case SELF_CARE -> "???? ?? ????";
+            case MEETING -> "?? ?? ????";
+            case DATE -> "?????";
+            case TRAVEL -> "?? ?? ????";
+            case EVENT -> "??? ????";
+            case CEREMONY -> "??? ????";
+            case WEDDING -> "??? ????";
+            case DRINKING -> "??? ?? ????";
+            case TALK -> "????? ?? ???";
+        };
+    }
     private String joinEveningConditions(Set<EveningCondition> conditions) {
         if (conditions == null || conditions.isEmpty()) {
             return DEFAULT_VALUE;
