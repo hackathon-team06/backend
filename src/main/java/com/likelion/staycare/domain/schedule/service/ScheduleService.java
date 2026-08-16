@@ -47,7 +47,6 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.save(
                 Schedule.builder()
                         .user(user)
-                        .title(request.title())
                         .startDate(request.startDate())
                         .endDate(request.endDate())
                         .startTime(request.startTime())
@@ -83,7 +82,6 @@ public class ScheduleService {
         Schedule schedule = getOwnedSchedule(userId, scheduleId);
 
         schedule.updateSchedule(
-                request.title(),
                 request.startDate(),
                 request.endDate(),
                 request.startTime(),

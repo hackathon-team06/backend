@@ -252,7 +252,6 @@ public class GoogleCalendarSchedulePushService {
 
     private Map<String, Object> buildEventRequest(Schedule schedule) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("summary", normalizeTitle(schedule.getTitle()));
         body.put("description", buildDescription(schedule));
 
         LocalDate startDate = resolveStartDate(schedule);

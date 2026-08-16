@@ -103,6 +103,15 @@ public class MissionService {
     private final OpenAiService openAiService;
     private final PointService pointService;
 
+    private String buildScheduleStep(Schedule schedule) {
+        String category = schedule.getCategory() == null ? "일정" : schedule.getCategory().name();
+        String companion = schedule.getCompanion() == null ? "동행자 없음" : schedule.getCompanion().name();
+
+        return category + " 일정 소화하기"
+                + " (" + companion + ")";
+    }
+
+
     public MissionOptionsResponse getMissionOptions() {
         return MissionOptionsResponse.builder()
                 .morningCategories(toOptionItems(List.of(MorningMissionCategory.values())))
@@ -322,9 +331,10 @@ public class MissionService {
                 .map(this::buildScheduleStep)
                 .ifPresent(steps::add);
 
+
+
         List<GeneratedMissionStep> savedSteps = saveGeneratedMissionSteps(savedMission, steps);
         return EveningMissionResponse.builder()
-                .title(savedMission.getTitle())
                 .description(savedMission.getDescription())
                 .stepIds(extractStepIds(savedSteps))
                 .steps(steps)
@@ -733,15 +743,11 @@ public class MissionService {
     }
 
     private String buildScheduleContext(Schedule schedule) {
-        return "?쇱젙 ?쒕ぉ: " + schedule.getTitle()
-                + ", ?쒖옉?? " + schedule.getStartDate()
+        return
+                 ", ?쒖옉?? " + schedule.getStartDate()
                 + ", 醫낅즺?? " + schedule.getEndDate()
                 + ", ?숉뻾?? " + schedule.getCompanion()
                 + ", ?쇱젙 移댄뀒怨좊━: " + schedule.getCategory();
-    }
-
-    private String buildScheduleStep(Schedule schedule) {
-        return schedule.getTitle() + " ?쇱젙 ?뚰솕?섍린";
     }
 
     private String joinEveningConditions(Set<EveningCondition> conditions) {

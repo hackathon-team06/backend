@@ -11,10 +11,6 @@ import java.time.LocalTime;
 
 @Schema(name = "ScheduleUpdateRequest", description = "일정 수정 요청")
 public record ScheduleUpdateRequest(
-        @NotBlank
-        @Schema(description = "일정 제목", example = "피부과 방문")
-        String title,
-
         @NotNull
         @Schema(description = "일정 시작일", example = "2026-08-20")
         LocalDate startDate,

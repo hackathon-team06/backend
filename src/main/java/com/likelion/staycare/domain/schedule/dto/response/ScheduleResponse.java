@@ -12,7 +12,6 @@ import java.time.LocalTime;
 @Builder
 public record ScheduleResponse(
         Long id,
-        String title,
         LocalDate startDate,
         LocalDate endDate,
         LocalTime startTime,
@@ -24,7 +23,6 @@ public record ScheduleResponse(
     public static ScheduleResponse from(Schedule schedule) {
         return ScheduleResponse.builder()
                 .id(schedule.getId())
-                .title(schedule.getTitle())
                 .startDate(schedule.getStartDate())
                 .endDate(schedule.getEndDate())
                 .startTime(schedule.getStartTime())
