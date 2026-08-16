@@ -36,7 +36,7 @@ cors:
     - https://hackathon-staycare.netlify.app
 
 app:
-  frontend-url: http://localhost:5173
+  frontend-url: https://hackathon-staycare.netlify.app
 
 firebase:
   service-account-b64: ${FIREBASE_SERVICE_ACCOUNT_B64:}
