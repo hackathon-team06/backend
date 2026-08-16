@@ -438,12 +438,8 @@ public class MissionService {
             stepCheck.updateChecked(true);
             userMissionStepCheckRepository.saveAndFlush(stepCheck);
 
-            if (!alreadyChecked && isPointRewardStep(generatedMissionStep)) {
+            if (!alreadyChecked) {
                 pointService.rewardMissionStep(user, generatedMissionStep);
-            }
-
-            if (isAllPointRewardStepsCompleted(mission)) {
-                pointService.rewardMissionCompleteBonus(user, mission);
             }
 
             if (isAllStepsCompleted(mission)) {
@@ -670,29 +666,6 @@ public class MissionService {
         return checks.stream().allMatch(UserMissionStepCheck::isChecked);
     }
 
-    private boolean isAllPointRewardStepsCompleted(GeneratedMission mission) {
-        List<GeneratedMissionStep> rewardSteps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
-                .stream()
-                .filter(this::isPointRewardStep)
-                .toList();
-        List<UserMissionStepCheck> checks = userMissionStepCheckRepository.findByGeneratedMissionStepGeneratedMission(mission);
-
-        if (rewardSteps.isEmpty()) {
-            return false;
-        }
-
-        Map<Long, UserMissionStepCheck> checksByStepId = checks.stream()
-                .collect(Collectors.toMap(check -> check.getGeneratedMissionStep().getId(), Function.identity()));
-
-        return rewardSteps.stream().allMatch(step ->
-                checksByStepId.get(step.getId()) != null && checksByStepId.get(step.getId()).isChecked()
-        );
-    }
-
-    private boolean isPointRewardStep(GeneratedMissionStep step) {
-        return step.getStepOrder() <= MORNING_ROUTINE_SIZE;
-    }
-
     private boolean isCompletedDay(
             LocalDate date,
             LocalDate today,
@@ -756,10 +729,7 @@ public class MissionService {
     }
 
     private String buildMorningMissionStatus(GeneratedMission morningMission) {
-        List<GeneratedMissionStep> steps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(morningMission)
-                .stream()
-                .filter(this::isPointRewardStep)
-                .toList();
+        List<GeneratedMissionStep> steps = generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(morningMission);
         Map<Long, UserMissionStepCheck> checksByStepId = userMissionStepCheckRepository
                 .findByGeneratedMissionStepGeneratedMission(morningMission)
                 .stream()

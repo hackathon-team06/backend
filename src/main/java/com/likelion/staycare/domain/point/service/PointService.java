@@ -2,7 +2,6 @@ package com.likelion.staycare.domain.point.service;
 
 import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
-import com.likelion.staycare.domain.mission.entity.enums.MissionTime;
 import com.likelion.staycare.domain.point.dto.response.PointResponse;
 import com.likelion.staycare.domain.point.entity.PointHistory;
 import com.likelion.staycare.domain.point.entity.PointRewardType;
@@ -26,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PointService {
 
     private static final int STEP_POINT = 1;
-    private static final int COMPLETE_BONUS_POINT = 2;
     private static final int DIAGNOSIS_REWARD_POINT = 10;
     private static final String DIAGNOSIS_REWARD_KEY = "ONBOARDING_DIAGNOSIS";
 
@@ -58,7 +56,7 @@ public class PointService {
             pointHistoryRepository.saveAndFlush(
                     PointHistory.builder()
                             .user(user)
-                            .mission(null)
+                            .mission(step.getGeneratedMission())
                             .step(step)
                             .rewardType(PointRewardType.MISSION_STEP)
                             .rewardKey(null)
@@ -68,43 +66,6 @@ public class PointService {
 
             PointWallet pointWallet = getOrCreatePointWallet(user);
             pointWallet.addPoint(STEP_POINT);
-            pointWalletRepository.saveAndFlush(pointWallet);
-        } catch (DataIntegrityViolationException e) {
-            if (isDuplicateRewardException(e)) {
-                return;
-            }
-            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
-        } catch (DataAccessException e) {
-            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
-        }
-    }
-
-    @Transactional
-    public void rewardMissionCompleteBonus(User user, GeneratedMission mission) {
-        try {
-            PointRewardType rewardType = getCompleteBonusRewardType(mission.getMissionTime());
-
-            if (pointHistoryRepository.existsByUserIdAndMissionIdAndRewardType(
-                    user.getId(),
-                    mission.getId(),
-                    rewardType
-            )) {
-                return;
-            }
-
-            pointHistoryRepository.saveAndFlush(
-                    PointHistory.builder()
-                            .user(user)
-                            .mission(mission)
-                            .step(null)
-                            .rewardType(rewardType)
-                            .rewardKey(null)
-                            .amount(COMPLETE_BONUS_POINT)
-                            .build()
-            );
-
-            PointWallet pointWallet = getOrCreatePointWallet(user);
-            pointWallet.addPoint(COMPLETE_BONUS_POINT);
             pointWalletRepository.saveAndFlush(pointWallet);
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateRewardException(e)) {
@@ -185,12 +146,6 @@ public class PointService {
         } catch (DataAccessException e) {
             throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         }
-    }
-
-    private PointRewardType getCompleteBonusRewardType(MissionTime missionTime) {
-        return missionTime == MissionTime.MORNING
-                ? PointRewardType.MORNING_COMPLETE_BONUS
-                : PointRewardType.EVENING_COMPLETE_BONUS;
     }
 
     private boolean isDuplicateRewardException(DataIntegrityViolationException e) {
