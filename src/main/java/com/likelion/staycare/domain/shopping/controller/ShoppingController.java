@@ -7,7 +7,12 @@ import com.likelion.staycare.domain.shopping.service.ShoppingService;
 import com.likelion.staycare.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +87,79 @@ public class ShoppingController {
     ) {
         return ResponseEntity.ok(
                 shoppingService.getProducts(userDetails.getUserId(), skinType, category)
+        );
+    }
+
+    @Operation(
+            summary = "랜덤 추천 상품 5개 조회",
+            description = """
+                    DB에 저장된 활성 상품 중 랜덤으로 최대 5개를 반환합니다.
+
+                    - 동일 상품은 한 응답 안에서 중복되지 않습니다.
+                    - 상품이 5개 미만이면 존재하는 상품만 반환합니다.
+                    - 상품이 없으면 빈 배열([])을 반환합니다.
+                    - 실제 구매량, 인기순, 연령대 통계 기반 추천이 아닙니다.
+                    - 호출할 때마다 결과가 달라질 수 있습니다.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "랜덤 추천 상품 조회 성공",
+                    content = @Content(
+                            array = @ArraySchema(schema = @Schema(implementation = ProductResponse.class)),
+                            examples = @ExampleObject(
+                                    name = "randomProducts",
+                                    value = """
+                                            [
+                                              {
+                                                "productId": 12,
+                                                "name": "히알루론산 수분 토너",
+                                                "brand": "브랜드명",
+                                                "category": "SKIN_TONER",
+                                                "skinTypes": ["DRY", "DEHYDRATED"],
+                                                "imageUrl": "https://example.com/image.jpg",
+                                                "purchaseUrl": "https://example.com/product",
+                                                "price": 18000,
+                                                "originalPrice": 22000,
+                                                "discountRate": 18,
+                                                "priceUpdatedAt": "2026-08-16T09:30:00",
+                                                "liked": false,
+                                                "availablePoints": 1500,
+                                                "appliedPoints": 1500,
+                                                "pointDiscountAmount": 1500,
+                                                "pointAppliedPrice": 16500
+                                              },
+                                              {
+                                                "productId": 3,
+                                                "name": "판테놀 장벽 크림",
+                                                "brand": "브랜드명",
+                                                "category": "CREAM",
+                                                "skinTypes": ["DRY", "NORMAL"],
+                                                "imageUrl": "https://example.com/image2.jpg",
+                                                "purchaseUrl": "https://example.com/product2",
+                                                "price": 23000,
+                                                "originalPrice": 28000,
+                                                "discountRate": 17,
+                                                "priceUpdatedAt": "2026-08-16T09:30:00",
+                                                "liked": true,
+                                                "availablePoints": 1500,
+                                                "appliedPoints": 1500,
+                                                "pointDiscountAmount": 1500,
+                                                "pointAppliedPrice": 21500
+                                              }
+                                            ]
+                                            """
+                            )
+                    )
+            )
+    })
+    @GetMapping("/products/random")
+    public ResponseEntity<List<ProductResponse>> getRandomProducts(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                shoppingService.getRandomProducts(userDetails.getUserId())
         );
     }
 

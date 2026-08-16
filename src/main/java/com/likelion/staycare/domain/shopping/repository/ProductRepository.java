@@ -28,4 +28,24 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("skinType") SkinType skinType,
             @Param("category") ProductCategory category
     );
+
+    @Query(
+            value = """
+                    select p.product_id
+                    from products p
+                    where p.is_active = true
+                    order by rand()
+                    limit 5
+                    """,
+            nativeQuery = true
+    )
+    List<Long> findRandomActiveProductIds();
+
+    @EntityGraph(attributePaths = "skinTypes")
+    @Query("""
+            select distinct p
+            from Product p
+            where p.id in :productIds
+            """)
+    List<Product> findAllByIdInWithSkinTypes(@Param("productIds") List<Long> productIds);
 }
