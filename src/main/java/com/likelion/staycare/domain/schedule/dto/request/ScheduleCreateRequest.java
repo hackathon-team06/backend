@@ -11,10 +11,6 @@ import java.time.LocalTime;
 
 @Schema(name = "ScheduleCreateRequest", description = "일정 등록 요청")
 public record ScheduleCreateRequest(
-        @NotBlank
-        @Schema(description = "일정 제목", example = "제주도 여행")
-        String title,
-
         @NotNull
         @Schema(description = "일정 시작일", example = "2026-08-15")
         LocalDate startDate,

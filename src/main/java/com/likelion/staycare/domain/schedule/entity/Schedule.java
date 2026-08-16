@@ -45,9 +45,6 @@ public class Schedule extends BaseTimeEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "title", nullable = false, length = 100)
-    private String title;
-
     @Column(name = "schedule_date", nullable = false)
     private LocalDate legacyScheduleDate;
 
@@ -78,7 +75,6 @@ public class Schedule extends BaseTimeEntity {
     @Builder
     public Schedule(
             User user,
-            String title,
             LocalDate startDate,
             LocalDate endDate,
             LocalTime startTime,
@@ -87,7 +83,6 @@ public class Schedule extends BaseTimeEntity {
             ScheduleCategory category
     ) {
         this.user = user;
-        this.title = title;
         this.legacyScheduleDate = startDate;
         this.startDate = startDate;
         this.endDate = endDate;
@@ -99,7 +94,6 @@ public class Schedule extends BaseTimeEntity {
     }
 
     public void updateSchedule(
-            String title,
             LocalDate startDate,
             LocalDate endDate,
             LocalTime startTime,
@@ -107,7 +101,6 @@ public class Schedule extends BaseTimeEntity {
             Companion companion,
             ScheduleCategory category
     ) {
-        this.title = title;
         this.legacyScheduleDate = startDate;
         this.startDate = startDate;
         this.endDate = endDate;

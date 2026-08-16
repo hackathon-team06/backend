@@ -15,7 +15,6 @@ import java.time.temporal.ChronoUnit;
 @Schema(description = "날짜별 일정 조회 응답")
 public record ScheduleDateResponse(
         Long scheduleId,
-        String title,
         LocalDate startDate,
         LocalDate endDate,
         LocalTime startTime,
@@ -31,7 +30,6 @@ public record ScheduleDateResponse(
 
         return ScheduleDateResponse.builder()
                 .scheduleId(schedule.getId())
-                .title(schedule.getTitle())
                 .startDate(schedule.getStartDate())
                 .endDate(schedule.getEndDate())
                 .startTime(schedule.getStartTime())

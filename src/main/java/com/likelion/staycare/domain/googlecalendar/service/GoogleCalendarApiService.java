@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -38,105 +37,43 @@ public class GoogleCalendarApiService {
     private final RestClient restClient = RestClient.create();
 
     /**
-     * 사용자 응답용:
-     * cancelled 이벤트는 제외하고 반환
+     * 사용자 조회용:
+     * Google Calendar의 특정 날짜 이벤트를 읽어 응답으로만 반환한다.
+     * 앱 DB에는 저장/수정/삭제를 하지 않는다.
      */
     @Transactional(readOnly = true)
     public GoogleCalendarEventsResponse getEventsByDate(Long userId, LocalDate date) {
-        List<GoogleCalendarEventItem> rawEvents = getRawEventsByDate(userId, date);
-
-        List<GoogleCalendarEventResponse> events = rawEvents.stream()
-                .filter(item -> !isCancelled(item))
-                .map(this::toResponse)
-                .toList();
-
-        return GoogleCalendarEventsResponse.builder()
-                .events(events)
-                .build();
-    }
-
-    /**
-     * 동기화용:
-     * cancelled 이벤트도 포함해서 반환
-     *
-     * 현재는 안정성을 위해 Google에 timeMin/timeMax를 직접 주지 않고,
-     * primary calendar 이벤트를 읽은 뒤 서버에서 날짜 필터링한다.
-     * 페이지네이션(nextPageToken)도 처리한다.
-     */
-    @Transactional(readOnly = true)
-    public List<GoogleCalendarEventItem> getRawEventsByDate(Long userId, LocalDate date) {
         GoogleCalendarConnection connection = getValidConnection(userId);
 
         log.info("Google Calendar events fetch start. userId={}, date={}", userId, date);
-        log.info("Google Calendar scope={}", connection.getScope());
 
         try {
-            List<GoogleCalendarEventItem> allItems = new ArrayList<>();
-            String pageToken = null;
+            GoogleCalendarEventsListResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .scheme("https")
+                            .host("www.googleapis.com")
+                            .path("/calendar/v3/calendars/primary/events")
+                            .queryParam("singleEvents", true)
+                            .queryParam("orderBy", "startTime")
+                            .queryParam("timeMin", date.atStartOfDay(KOREA_ZONE).toOffsetDateTime().toString())
+                            .queryParam("timeMax", date.plusDays(1).atStartOfDay(KOREA_ZONE).toOffsetDateTime().toString())
+                            .build())
+                    .headers(headers -> headers.setBearerAuth(connection.getAccessToken()))
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(GoogleCalendarEventsListResponse.class);
 
-            do {
-                String currentPageToken = pageToken;
+            List<GoogleCalendarEventItem> items =
+                    response == null || response.items() == null ? List.of() : response.items();
 
-                GoogleCalendarEventsListResponse response = restClient.get()
-                        .uri(uriBuilder -> {
-                            var builder = uriBuilder
-                                    .scheme("https")
-                                    .host("www.googleapis.com")
-                                    .path("/calendar/v3/calendars/primary/events")
-                                    .queryParam("singleEvents", true)
-                                    .queryParam("maxResults", 250)
-                                    .queryParam("showDeleted", true);
-
-                            if (currentPageToken != null && !currentPageToken.isBlank()) {
-                                builder.queryParam("pageToken", currentPageToken);
-                            }
-
-                            return builder.build();
-                        })
-                        .headers(headers -> headers.setBearerAuth(connection.getAccessToken()))
-                        .accept(MediaType.APPLICATION_JSON)
-                        .retrieve()
-                        .body(GoogleCalendarEventsListResponse.class);
-
-                List<GoogleCalendarEventItem> pageItems =
-                        response == null || response.items() == null ? List.of() : response.items();
-
-                allItems.addAll(pageItems);
-
-                pageToken = response == null ? null : response.nextPageToken();
-
-                log.info("Google Calendar page fetched. pageCount={}, nextPageTokenExists={}",
-                        pageItems.size(), pageToken != null && !pageToken.isBlank());
-
-            } while (pageToken != null && !pageToken.isBlank());
-
-            log.info("Google Calendar raw events fetched. totalCount={}", allItems.size());
-
-            for (GoogleCalendarEventItem item : allItems) {
-                log.info("RAW eventId={}, summary={}, status={}, start={}, end={}",
-                        item.id(),
-                        item.summary(),
-                        item.status(),
-                        item.start(),
-                        item.end());
-            }
-
-            List<GoogleCalendarEventItem> filtered = allItems.stream()
-                    .filter(item -> isEventOnDate(item, date))
+            List<GoogleCalendarEventResponse> events = items.stream()
+                    .filter(item -> !isCancelled(item))
+                    .map(this::toResponse)
                     .toList();
 
-            log.info("Google Calendar filtered events. count={}", filtered.size());
-
-            for (GoogleCalendarEventItem item : filtered) {
-                log.info("FILTERED eventId={}, summary={}, status={}, start={}, end={}",
-                        item.id(),
-                        item.summary(),
-                        item.status(),
-                        item.start(),
-                        item.end());
-            }
-
-            return filtered;
+            return GoogleCalendarEventsResponse.builder()
+                    .events(events)
+                    .build();
 
         } catch (HttpStatusCodeException e) {
             log.error("Google Calendar API error status={}", e.getStatusCode());
@@ -147,7 +84,6 @@ public class GoogleCalendarApiService {
             throw e;
         }
     }
-
 
     /**
      * primary calendar 접근 자체가 되는지 확인용
@@ -168,44 +104,6 @@ public class GoogleCalendarApiService {
             log.error("Primary calendar access error body={}", e.getResponseBodyAsString(), e);
             throw e;
         }
-    }
-
-    private boolean isEventOnDate(GoogleCalendarEventItem item, LocalDate targetDate) {
-        GoogleCalendarEventDateTime start = item.start();
-        GoogleCalendarEventDateTime end = item.end();
-
-        if (start == null) {
-            return false;
-        }
-
-        // 종일 일정: end.date 는 Google 규격상 exclusive
-        if (start.date() != null && !start.date().isBlank()) {
-            LocalDate startDate = LocalDate.parse(start.date());
-
-            LocalDate endDateExclusive = (end != null && end.date() != null && !end.date().isBlank())
-                    ? LocalDate.parse(end.date())
-                    : startDate.plusDays(1);
-
-            return !targetDate.isBefore(startDate) && targetDate.isBefore(endDateExclusive);
-        }
-
-        // 시간 지정 일정
-        if (start.dateTime() != null && !start.dateTime().isBlank()) {
-            OffsetDateTime startDateTime = OffsetDateTime.parse(start.dateTime());
-            LocalDate eventStartDate = startDateTime.atZoneSameInstant(KOREA_ZONE).toLocalDate();
-
-            LocalDate eventEndDate = eventStartDate;
-            if (end != null && end.dateTime() != null && !end.dateTime().isBlank()) {
-                OffsetDateTime endDateTime = OffsetDateTime.parse(end.dateTime());
-                eventEndDate = endDateTime.atZoneSameInstant(KOREA_ZONE)
-                        .minusNanos(1)
-                        .toLocalDate();
-            }
-
-            return !targetDate.isBefore(eventStartDate) && !targetDate.isAfter(eventEndDate);
-        }
-
-        return false;
     }
 
     private boolean isCancelled(GoogleCalendarEventItem item) {
