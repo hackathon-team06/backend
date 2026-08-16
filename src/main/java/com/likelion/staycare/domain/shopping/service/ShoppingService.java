@@ -20,7 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -66,6 +69,30 @@ public class ShoppingService {
         Set<Long> likedProductIds = productLikeRepository.findLikedProductIdsByUserId(userId);
 
         return products.stream()
+                .map(product -> ProductResponse.from(
+                        product,
+                        likedProductIds.contains(product.getId()),
+                        availablePoints
+                ))
+                .toList();
+    }
+
+    public List<ProductResponse> getRandomProducts(Long userId) {
+        getUser(userId);
+        int availablePoints = getAvailablePoints(userId);
+
+        List<Long> randomProductIds = productRepository.findRandomActiveProductIds();
+        if (randomProductIds.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> likedProductIds = productLikeRepository.findLikedProductIdsByUserId(userId);
+        Map<Long, Product> productMap = productRepository.findAllByIdInWithSkinTypes(randomProductIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        return randomProductIds.stream()
+                .map(productMap::get)
+                .filter(product -> product != null && product.isActive())
                 .map(product -> ProductResponse.from(
                         product,
                         likedProductIds.contains(product.getId()),
