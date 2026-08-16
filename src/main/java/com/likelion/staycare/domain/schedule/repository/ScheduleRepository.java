@@ -17,12 +17,6 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             ScheduleStatus status
     );
 
-    List<Schedule> findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
-            Long userId,
-            LocalDate startDate,
-            LocalDate endDate
-    );
-
     List<Schedule> findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
             Long userId,
             LocalDate startDate,

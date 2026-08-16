@@ -7,7 +7,5 @@ import java.util.Optional;
 
 public interface GoogleCalendarScheduleLinkRepository extends JpaRepository<GoogleCalendarScheduleLink, Long> {
 
-    Optional<GoogleCalendarScheduleLink> findByUser_IdAndGoogleEventId(Long userId, String googleEventId);
-
     Optional<GoogleCalendarScheduleLink> findBySchedule_Id(Long scheduleId);
 }

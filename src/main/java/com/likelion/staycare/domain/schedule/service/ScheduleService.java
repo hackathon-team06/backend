@@ -2,7 +2,6 @@ package com.likelion.staycare.domain.schedule.service;
 
 import com.likelion.staycare.domain.googlecalendar.repository.GoogleCalendarScheduleLinkRepository;
 import com.likelion.staycare.domain.googlecalendar.service.GoogleCalendarSchedulePushService;
-import com.likelion.staycare.domain.googlecalendar.service.GoogleCalendarScheduleSyncService;
 import com.likelion.staycare.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.likelion.staycare.domain.schedule.dto.request.ScheduleUpdateRequest;
 import com.likelion.staycare.domain.schedule.dto.response.ScheduleDateResponse;
@@ -36,7 +35,6 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
     private final GoogleCalendarSchedulePushService googleCalendarSchedulePushService;
-    private final GoogleCalendarScheduleSyncService googleCalendarScheduleSyncService;
     private final GoogleCalendarScheduleLinkRepository googleCalendarScheduleLinkRepository;
 
     @Transactional
@@ -116,12 +114,6 @@ public class ScheduleService {
 
         getUser(userId);
 
-        try {
-            googleCalendarScheduleSyncService.syncDate(userId, today);
-        } catch (Exception e) {
-            log.error("Google Calendar 오늘 일정 동기화 실패. userId={}, date={}", userId, today, e);
-        }
-
         return scheduleRepository
                 .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
                         userId,
@@ -136,12 +128,6 @@ public class ScheduleService {
 
     public List<ScheduleDateResponse> getSchedulesByDate(Long userId, LocalDate date) {
         getUser(userId);
-
-        try {
-            googleCalendarScheduleSyncService.syncDate(userId, date);
-        } catch (Exception e) {
-            log.error("Google Calendar 날짜 일정 동기화 실패. userId={}, date={}", userId, date, e);
-        }
 
         return scheduleRepository
                 .findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatusOrderByStartDateAsc(
@@ -189,12 +175,6 @@ public class ScheduleService {
             log.error("Google Calendar 일정 삭제 실패. scheduleId={}", schedule.getId(), e);
         }
 
-        /*
-         * 주의:
-         * googleCalendarSchedulePushService.deleteGoogleEventIfLinked(schedule)
-         * 내부에서 link까지 삭제하고 있다면 아래 삭제 로직과 책임이 중복됩니다.
-         * 현재 이 ScheduleService가 link 삭제 책임을 가진다는 전제로 유지합니다.
-         */
         googleCalendarScheduleLinkRepository.findBySchedule_Id(schedule.getId())
                 .ifPresent(googleCalendarScheduleLinkRepository::delete);
 
