@@ -19,6 +19,8 @@ public interface UserMissionStepCheckRepository extends JpaRepository<UserMissio
 
     void deleteAllByGeneratedMissionStepIn(List<GeneratedMissionStep> steps);
 
+    void deleteByGeneratedMissionStepId(Long stepId);
+
     @Query("""
         select c.generatedMissionStep.id
         from UserMissionStepCheck c

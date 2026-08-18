@@ -13,6 +13,7 @@ import com.likelion.staycare.domain.point.entity.PointRewardType;
 import com.likelion.staycare.domain.point.repository.PointHistoryRepository;
 import com.likelion.staycare.domain.stamp.dto.MyPageStampSummaryResponse;
 import com.likelion.staycare.domain.stamp.dto.StampBookCardResponse;
+import com.likelion.staycare.domain.stamp.dto.StampBookCountdownResponse;
 import com.likelion.staycare.domain.stamp.dto.StampCalendarDayResponse;
 import com.likelion.staycare.domain.stamp.dto.StampCalendarResponse;
 import com.likelion.staycare.domain.stamp.dto.StampCalendarSummaryResponse;
@@ -286,5 +287,50 @@ public class StampService {
         }
 
         return checkCycle.getDays();
+    }
+
+    @Transactional
+    public StampBookCountdownResponse getStampBookCountdown(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("?ъ슜?먮? 李얠쓣 ???놁뒿?덈떎. userId=" + userId));
+
+        LocalDate today = LocalDate.now(KOREA_ZONE_ID);
+        List<StampBook> stampBooks = stampBookRepository.findAllByUserOrderByStartDateAsc(user);
+
+        if (stampBooks.isEmpty()) {
+            int selectedPeriodDays = resolveStampPeriodDays(user);
+
+            StampBook newBook = StampBook.builder()
+                    .user(user)
+                    .startDate(today)
+                    .endDate(today.plusDays(selectedPeriodDays - 1L))
+                    .periodDays(selectedPeriodDays)
+                    .build();
+
+            stampBookRepository.save(newBook);
+            stampBooks = List.of(newBook);
+        }
+
+        StampBook currentBook = stampBooks.get(stampBooks.size() - 1);
+        long rawDiff = ChronoUnit.DAYS.between(today, currentBook.getEndDate());
+        long remainingDays = Math.max(0, rawDiff);
+
+        return new StampBookCountdownResponse(
+                currentBook.getStartDate(),
+                currentBook.getEndDate(),
+                currentBook.getPeriodDays(),
+                remainingDays,
+                toDday(rawDiff)
+        );
+    }
+
+    private String toDday(long diff) {
+        if (diff == 0) {
+            return "D-Day";
+        }
+        if (diff > 0) {
+            return "D-" + diff;
+        }
+        return "D+" + Math.abs(diff);
     }
 }

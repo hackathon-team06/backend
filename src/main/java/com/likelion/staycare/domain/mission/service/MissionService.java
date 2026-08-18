@@ -5,9 +5,12 @@ import com.likelion.staycare.domain.diagnosis.entity.Diagnosis;
 import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.diagnosis.repository.DiagnosisRepository;
 import com.likelion.staycare.domain.mission.dto.request.EveningMissionRequest;
+import com.likelion.staycare.domain.mission.dto.request.EveningMissionRecommendationRequest;
+import com.likelion.staycare.domain.mission.dto.request.EveningMissionStepAddRequest;
 import com.likelion.staycare.domain.mission.dto.request.MorningRoutineRecommendationRequest;
 import com.likelion.staycare.domain.mission.dto.request.MorningRoutineSaveRequest;
 import com.likelion.staycare.domain.mission.dto.request.MorningRoutineSurveySaveRequest;
+import com.likelion.staycare.domain.mission.dto.response.EveningMissionRecommendationResponse;
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionOptionItemResponse;
@@ -26,8 +29,6 @@ import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
 import com.likelion.staycare.domain.mission.entity.MorningRoutine;
 import com.likelion.staycare.domain.mission.entity.MorningRoutineItem;
-import com.likelion.staycare.domain.mission.entity.MorningRoutineSurvey;
-import com.likelion.staycare.domain.mission.entity.MorningRoutineSurveyItem;
 import com.likelion.staycare.domain.mission.entity.UserMissionStepCheck;
 import com.likelion.staycare.domain.mission.entity.enums.EveningCondition;
 import com.likelion.staycare.domain.mission.entity.enums.MissionStatus;
@@ -42,8 +43,6 @@ import com.likelion.staycare.domain.mission.repository.GeneratedMissionRepositor
 import com.likelion.staycare.domain.mission.repository.GeneratedMissionStepRepository;
 import com.likelion.staycare.domain.mission.repository.MorningRoutineItemRepository;
 import com.likelion.staycare.domain.mission.repository.MorningRoutineRepository;
-import com.likelion.staycare.domain.mission.repository.MorningRoutineSurveyItemRepository;
-import com.likelion.staycare.domain.mission.repository.MorningRoutineSurveyRepository;
 import com.likelion.staycare.domain.mission.repository.UserMissionStepCheckRepository;
 import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.schedule.entity.Schedule;
@@ -88,6 +87,10 @@ public class MissionService {
     private static final String PROMPT_VERSION = "v2";
     private static final int MORNING_ROUTINE_SIZE = 3;
     private static final int MORNING_RECOMMENDATION_COUNT = 3;
+    private static final int EVENING_CATEGORY_MAX_COUNT = 2;
+    private static final int EVENING_EDITABLE_STEP_SIZE = 3;
+    private static final int MORNING_ROUTINE_TEMP_ORDER_OFFSET = 1000;
+    private static final int EVENING_STEP_TEMP_ORDER_OFFSET = 2000;
     private static final LocalTime MORNING_END_TIME = LocalTime.NOON;
     private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
@@ -98,8 +101,6 @@ public class MissionService {
     private final UserMissionStepCheckRepository userMissionStepCheckRepository;
     private final MorningRoutineRepository morningRoutineRepository;
     private final MorningRoutineItemRepository morningRoutineItemRepository;
-    private final MorningRoutineSurveyRepository morningRoutineSurveyRepository;
-    private final MorningRoutineSurveyItemRepository morningRoutineSurveyItemRepository;
     private final ScheduleRepository scheduleRepository;
     private final DiagnosisRepository diagnosisRepository;
     private final OpenAiService openAiService;
@@ -132,31 +133,7 @@ public class MissionService {
 
     @Transactional
     public void saveMorningRoutineSurvey(Long userId, MorningRoutineSurveySaveRequest request) {
-        validateSurveySelection(request.items());
-
-        User user = getUser(userId);
-        if (morningRoutineSurveyRepository.findByUserId(user.getId()).isPresent()) {
-            throw new CustomException(MissionErrorCode.MORNING_ROUTINE_SURVEY_ALREADY_COMPLETED);
-        }
-        MorningRoutineSurvey survey = morningRoutineSurveyRepository.save(MorningRoutineSurvey.builder()
-                .user(user)
-                .build());
-
-        List<MorningRoutineSurveyOption> selectedOptions = request.items().stream()
-                .sorted(Comparator.comparing(Enum::name))
-                .toList();
-
-        List<MorningRoutineSurveyItem> surveyItems = new ArrayList<>();
-        for (int index = 0; index < selectedOptions.size(); index++) {
-            MorningRoutineSurveyOption option = selectedOptions.get(index);
-            surveyItems.add(MorningRoutineSurveyItem.builder()
-                    .morningRoutineSurvey(survey)
-                    .optionCode(option)
-                    .itemOrder(index + 1)
-                    .build());
-        }
-
-        morningRoutineSurveyItemRepository.saveAll(surveyItems);
+        getUser(userId);
     }
 
     public MorningRoutineRecommendationResponse recommendMorningRoutine(
@@ -166,12 +143,6 @@ public class MissionService {
         validateMorningCategoryCount(request.categories());
 
         User user = getUser(userId);
-        List<String> surveyResponses = morningRoutineSurveyRepository.findByUserId(userId)
-                .map(this::getSurveyItems)
-                .orElse(List.of())
-                .stream()
-                .map(item -> item.getOptionCode().getLabel())
-                .toList();
         List<String> currentFixedMissions = morningRoutineRepository.findByUserId(userId)
                 .map(this::getActualMorningRoutineItems)
                 .orElse(List.of())
@@ -183,9 +154,6 @@ public class MissionService {
             throw new CustomException(MissionErrorCode.MORNING_ROUTINE_ALREADY_FULL);
         }
 
-        List<String> recommendationContext = new ArrayList<>(surveyResponses);
-        recommendationContext.addAll(currentFixedMissions);
-
         List<String> recommendations = openAiService.recommendMorningRoutine(
                 getAge(user.getAge()),
                 getGender(user),
@@ -195,7 +163,7 @@ public class MissionService {
                 getCareMotivation(user),
                 getLatestDiagnosisRecommendation(userId),
                 request.categories(),
-                recommendationContext,
+                currentFixedMissions,
                 Math.min(MORNING_RECOMMENDATION_COUNT, recommendationCount)
         );
 
@@ -212,6 +180,7 @@ public class MissionService {
 
         User user = getUser(userId);
         MorningRoutine routine = getOrCreateRoutine(user);
+        normalizeMorningRoutineItemOrder(routine);
         List<MorningRoutineItem> existingItems = getActualMorningRoutineItems(routine);
         int existingCount = existingItems.size();
 
@@ -237,7 +206,8 @@ public class MissionService {
                     .build());
         }
 
-        morningRoutineItemRepository.saveAll(items);
+        morningRoutineItemRepository.saveAllAndFlush(items);
+        normalizeMorningRoutineItemOrder(routine);
         return toMorningRoutineResponse(routine, getActualMorningRoutineItems(routine));
     }
 
@@ -345,6 +315,117 @@ public class MissionService {
                 .stepIds(extractStepIds(savedSteps))
                 .steps(steps)
                 .build();
+    }
+
+    public EveningMissionResponse getEveningMission(Long userId) {
+        User user = getUser(userId);
+        LocalDate today = getCurrentDate();
+
+        GeneratedMission eveningMission = generatedMissionRepository
+                .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_NOT_FOUND));
+
+        syncScheduleDerivedStep(userId, eveningMission);
+        return toEveningMissionResponse(eveningMission);
+    }
+
+    public EveningMissionRecommendationResponse recommendEveningMission(
+            Long userId,
+            EveningMissionRecommendationRequest request
+    ) {
+        validateEveningCategoryCount(request.categories());
+
+        User user = getUser(userId);
+        LocalDate today = getCurrentDate();
+        GeneratedMission eveningMission = generatedMissionRepository
+                .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_NOT_FOUND));
+        validateEveningMissionEditable(eveningMission);
+        GeneratedMission morningMission = getOrCreateMorningMission(user, today, true);
+
+        List<GeneratedMissionStep> editableEveningSteps = getEditableEveningSteps(eveningMission);
+        int remainingSlots = EVENING_EDITABLE_STEP_SIZE - editableEveningSteps.size();
+        if (remainingSlots <= 0) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_ALREADY_FULL);
+        }
+
+        List<String> recommendations = openAiService.recommendEveningMissions(
+                getAge(user.getAge()),
+                getGender(user),
+                getSkinType(user.getSkinType()),
+                getGoal(user.getGoal()),
+                getCheckCycle(user.getCheckCycle()),
+                getCareMotivation(user),
+                getLatestDiagnosisRecommendation(userId),
+                getTodayScheduleContext(userId, today),
+                getEveningRecommendationConditionText(eveningMission),
+                buildMorningMissionStatus(morningMission),
+                request.categories(),
+                editableEveningSteps.stream().map(GeneratedMissionStep::getContent).toList(),
+                remainingSlots
+        );
+
+        return EveningMissionRecommendationResponse.builder()
+                .recommendations(recommendations)
+                .build();
+    }
+
+    @Transactional
+    public EveningMissionResponse deleteEveningMissionStep(Long userId, Long stepId) {
+        User user = getUser(userId);
+        GeneratedMissionStep step = generatedMissionStepRepository.findById(stepId)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_STEP_NOT_FOUND));
+
+        GeneratedMission mission = step.getGeneratedMission();
+        validateMissionOwner(user, mission);
+        validateEveningMissionEditable(mission);
+        validateEditableEveningStep(step);
+
+        UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId).orElse(null);
+        if (stepCheck != null && stepCheck.isChecked()) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_STEP_EDIT_NOT_ALLOWED);
+        }
+        if (stepCheck != null) {
+            userMissionStepCheckRepository.deleteByGeneratedMissionStepId(stepId);
+            userMissionStepCheckRepository.flush();
+        }
+
+        generatedMissionStepRepository.delete(step);
+        generatedMissionStepRepository.flush();
+        normalizeEveningEditableStepOrder(mission);
+        return toEveningMissionResponse(mission);
+    }
+
+    @Transactional
+    public EveningMissionResponse addEveningMissionSteps(Long userId, EveningMissionStepAddRequest request) {
+        User user = getUser(userId);
+        LocalDate today = getCurrentDate();
+        GeneratedMission mission = generatedMissionRepository
+                .findByUserAndMissionDateAndMissionTime(user, today, MissionTime.EVENING)
+                .orElseThrow(() -> new CustomException(MissionErrorCode.MISSION_NOT_FOUND));
+
+        validateEveningMissionEditable(mission);
+        normalizeEveningEditableStepOrder(mission);
+        List<GeneratedMissionStep> editableSteps = getEditableEveningSteps(mission);
+        int remainingSlots = EVENING_EDITABLE_STEP_SIZE - editableSteps.size();
+        if (remainingSlots <= 0) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_ALREADY_FULL);
+        }
+        if (request.steps() == null || request.steps().isEmpty() || request.steps().size() > remainingSlots) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_ADD_SIZE_INVALID);
+        }
+
+        int nextOrder = editableSteps.size() + 1;
+        List<GeneratedMissionStep> newSteps = new ArrayList<>();
+        for (String content : request.steps()) {
+            newSteps.add(GeneratedMissionStep.builder()
+                    .generatedMission(mission)
+                    .content(content)
+                    .stepOrder(nextOrder++)
+                    .build());
+        }
+        generatedMissionStepRepository.saveAllAndFlush(newSteps);
+        return toEveningMissionResponse(mission);
     }
 
     @Transactional
@@ -536,9 +617,22 @@ public class MissionService {
         }
     }
 
-    private void validateSurveySelection(Set<MorningRoutineSurveyOption> items) {
-        if (items == null || items.isEmpty() || items.size() > MORNING_ROUTINE_SIZE) {
+    private void validateEveningCategoryCount(List<MorningMissionCategory> categories) {
+        if (categories != null && categories.size() > EVENING_CATEGORY_MAX_COUNT) {
             throw new CustomException(MissionErrorCode.INVALID_MORNING_ROUTINE_SIZE);
+        }
+    }
+
+    private void validateEveningMissionEditable(GeneratedMission mission) {
+        if (mission.getMissionTime() != MissionTime.EVENING || mission.getStatus() == MissionStatus.COMPLETED) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_STEP_EDIT_NOT_ALLOWED);
+        }
+    }
+
+    private void validateEditableEveningStep(GeneratedMissionStep step) {
+        if (step.getGeneratedMission().getMissionTime() != MissionTime.EVENING
+                || step.getStepOrder() > EVENING_EDITABLE_STEP_SIZE) {
+            throw new CustomException(MissionErrorCode.EVENING_MISSION_STEP_EDIT_NOT_ALLOWED);
         }
     }
 
@@ -733,6 +827,47 @@ public class MissionService {
                 .stepIds(extractStepIds(missionSteps))
                 .steps(missionSteps.stream().map(GeneratedMissionStep::getContent).toList())
                 .build();
+    }
+
+    private List<GeneratedMissionStep> getEditableEveningSteps(GeneratedMission mission) {
+        return generatedMissionStepRepository.findByGeneratedMissionOrderByStepOrderAsc(mission)
+                .stream()
+                .filter(step -> step.getStepOrder() <= EVENING_EDITABLE_STEP_SIZE)
+                .toList();
+    }
+
+    private void normalizeEveningEditableStepOrder(GeneratedMission mission) {
+        List<GeneratedMissionStep> editableSteps = getEditableEveningSteps(mission);
+        if (editableSteps.isEmpty()) {
+            return;
+        }
+
+        for (int index = 0; index < editableSteps.size(); index++) {
+            editableSteps.get(index).updateStepOrder(EVENING_STEP_TEMP_ORDER_OFFSET + index + 1);
+        }
+        generatedMissionStepRepository.saveAllAndFlush(editableSteps);
+
+        for (int index = 0; index < editableSteps.size(); index++) {
+            editableSteps.get(index).updateStepOrder(index + 1);
+        }
+        generatedMissionStepRepository.saveAllAndFlush(editableSteps);
+    }
+
+    private String getEveningRecommendationConditionText(GeneratedMission eveningMission) {
+        DailySkinCheck dailySkinCheck = eveningMission.getDailySkinCheck();
+        if (dailySkinCheck == null || dailySkinCheck.getSkinCondition() == null) {
+            return DEFAULT_VALUE;
+        }
+
+        return switch (dailySkinCheck.getSkinCondition()) {
+            case NORMAL -> "특이사항 없음";
+            case HOT_REDNESS -> "붉고 화끈거림";
+            case OILY_STUFFY -> "답답하고 번들거림";
+            case TROUBLE_REDNESS -> "트러블과 붉은기";
+            case MAKEUP_BREAKDOWN -> "메이크업 잔여감 또는 번들거림";
+            case DRY_TIGHT -> "건조하고 당김";
+            case OUTDOOR_SENSITIVE -> "외부 환경으로 예민해짐";
+        };
     }
 
     private MissionByDateResponse toMissionByDateResponse(GeneratedMission mission) {
@@ -956,15 +1091,15 @@ public class MissionService {
         return steps.stream().map(GeneratedMissionStep::getId).toList();
     }
 
-    private List<MorningRoutineSurveyItem> getSurveyItems(MorningRoutineSurvey survey) {
-        return morningRoutineSurveyItemRepository.findByMorningRoutineSurveyOrderByItemOrderAsc(survey);
-    }
-
     private List<MorningRoutineItem> getActualMorningRoutineItems(MorningRoutine routine) {
         return morningRoutineItemRepository.findByMorningRoutineAndSourceInOrderByItemOrderAsc(
                 routine,
-                List.of(MorningRoutineItemSource.AI, MorningRoutineItemSource.CUSTOM)
-        );
+                List.of(
+                        MorningRoutineItemSource.AI,
+                        MorningRoutineItemSource.SURVEY,
+                        MorningRoutineItemSource.CUSTOM
+                )
+        ).stream().limit(MORNING_ROUTINE_SIZE).toList();
     }
 
     private MorningRoutineResponse toMorningRoutineResponse(MorningRoutine routine, List<MorningRoutineItem> items) {
@@ -975,9 +1110,19 @@ public class MissionService {
     }
 
     private void normalizeMorningRoutineItemOrder(MorningRoutine routine) {
-        List<MorningRoutineItem> items = getActualMorningRoutineItems(routine);
+        List<MorningRoutineItem> items = morningRoutineItemRepository.findByMorningRoutineOrderByItemOrderAsc(routine);
+        if (items.isEmpty()) {
+            return;
+        }
+
+        for (int index = 0; index < items.size(); index++) {
+            items.get(index).updateItemOrder(MORNING_ROUTINE_TEMP_ORDER_OFFSET + index + 1);
+        }
+        morningRoutineItemRepository.saveAllAndFlush(items);
+
         for (int index = 0; index < items.size(); index++) {
             items.get(index).updateItemOrder(index + 1);
         }
+        morningRoutineItemRepository.saveAllAndFlush(items);
     }
 }

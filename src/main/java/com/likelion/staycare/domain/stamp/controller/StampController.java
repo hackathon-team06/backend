@@ -1,6 +1,7 @@
 package com.likelion.staycare.domain.stamp.controller;
 
 import com.likelion.staycare.domain.stamp.dto.MyPageStampSummaryResponse;
+import com.likelion.staycare.domain.stamp.dto.StampBookCountdownResponse;
 import com.likelion.staycare.domain.stamp.dto.StampCalendarResponse;
 import com.likelion.staycare.domain.stamp.service.StampService;
 import com.likelion.staycare.global.security.CustomUserDetails;
@@ -52,6 +53,19 @@ public class StampController {
     ) {
         return ResponseEntity.ok(
                 stampService.getMyPageStampSummary(userDetails.getUserId())
+        );
+    }
+
+    @Operation(
+            summary = "현재 스탬프북 종료일 카운트다운 조회",
+            description = "현재 사용자 스탬프북의 종료일까지 오늘 기준으로 얼마나 남았는지 조회합니다."
+    )
+    @GetMapping("/books/countdown")
+    public ResponseEntity<StampBookCountdownResponse> getStampBookCountdown(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                stampService.getStampBookCountdown(userDetails.getUserId())
         );
     }
 }

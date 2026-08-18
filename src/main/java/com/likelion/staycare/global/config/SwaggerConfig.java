@@ -57,13 +57,16 @@ public class SwaggerConfig {
     @Bean
     public OpenApiCustomizer missionPathOrderingCustomizer() {
         List<String> orderedPaths = List.of(
-                "/api/missions/morning-routine/options",
-                "/api/missions/morning-routine/survey",
                 "/api/missions/morning-routine/recommendations",
+                "/api/missions/morning-routine/options",
                 "/api/missions/morning-routine",
+                "/api/missions/morning-routine/items/{itemId}",
                 "/api/missions/morning",
                 "/api/missions/steps/{stepId}",
-                "/api/missions/morning-routine/items/{itemId}",
+                "/api/missions/morning-routine/survey",
+                "/api/missions/evening/recommendations",
+                "/api/missions/evening/steps/{stepId}",
+                "/api/missions/evening/steps",
                 "/api/missions/evening",
                 "/api/missions/today",
                 "/api/missions/options",

@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(
         description = """
-                아침 고정 미션 category 코드입니다.
+                아침 미션 추천과 저녁 미션 재추천에서 공통으로 사용하는 category 코드입니다.
                 MOISTURE=수분/보습
                 SUN_PROTECTION=자외선 차단
                 CLEANSING=세안/클렌징
@@ -49,6 +49,6 @@ public enum MorningMissionCategory {
             }
         }
 
-        throw new IllegalArgumentException("Unknown morning mission category: " + value);
+        throw new IllegalArgumentException("Unknown mission category: " + value);
     }
 }
