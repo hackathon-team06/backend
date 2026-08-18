@@ -52,4 +52,8 @@ public class GeneratedMissionStep {
     public void updateContent(String content) {
         this.content = content;
     }
+
+    public void updateStepOrder(int stepOrder) {
+        this.stepOrder = stepOrder;
+    }
 }

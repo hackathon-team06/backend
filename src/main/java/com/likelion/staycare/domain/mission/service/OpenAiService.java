@@ -99,6 +99,52 @@ public class OpenAiService {
                 .build();
     }
 
+    public List<String> recommendEveningMissions(
+            String age,
+            String gender,
+            String skinType,
+            String goal,
+            String checkCycle,
+            String careMotivation,
+            String diagnosisRecommendation,
+            String todaySchedule,
+            String todayConditions,
+            String morningMissionStatus,
+            List<MorningMissionCategory> categories,
+            List<String> existingEveningMissions,
+            int recommendationCount
+    ) {
+        String prompt = buildEveningRecommendationPrompt(
+                age,
+                gender,
+                skinType,
+                goal,
+                checkCycle,
+                careMotivation,
+                diagnosisRecommendation,
+                todaySchedule,
+                todayConditions,
+                morningMissionStatus,
+                categories,
+                existingEveningMissions,
+                recommendationCount
+        );
+
+        OpenAiResponsesResponse response = requestStructuredResponse(
+                prompt,
+                "evening_mission_recommendations",
+                "Evening mission recommendation response",
+                buildRecommendationJsonSchema(recommendationCount)
+        );
+        RecommendationPayload payload = parseRecommendationPayload(response);
+
+        if (payload.recommendations() == null || payload.recommendations().size() != recommendationCount) {
+            throw new OpenAiException(OpenAiErrorCode.OPENAI_INVALID_RESPONSE);
+        }
+
+        return payload.recommendations();
+    }
+
     private OpenAiResponsesResponse requestStructuredResponse(
             String userPrompt,
             String schemaName,
@@ -348,6 +394,71 @@ public class OpenAiService {
                 defaultValue(request.todayConditions()),
                 defaultValue(request.morningMissionStatus()),
                 describeSkinType(request.skinType())
+        );
+    }
+
+    private String buildEveningRecommendationPrompt(
+            String age,
+            String gender,
+            String skinType,
+            String goal,
+            String checkCycle,
+            String careMotivation,
+            String diagnosisRecommendation,
+            String todaySchedule,
+            String todayConditions,
+            String morningMissionStatus,
+            List<MorningMissionCategory> categories,
+            List<String> existingEveningMissions,
+            int recommendationCount
+    ) {
+        String categoryText = categories == null || categories.isEmpty()
+                ? "없음"
+                : categories.stream()
+                .map(category -> category == MorningMissionCategory.POPULAR
+                        ? category.getLabel() + "(현재 사용자 상황 안에서 실천하기 쉽고 선호도가 높은 미션)"
+                        : category.getLabel())
+                .collect(Collectors.joining(", "));
+
+        return """
+                [저녁 미션 재추천]
+
+                - 나이: %s
+                - 성별: %s
+                - 피부 타입: %s
+                - 목표(goal): %s
+                - 관리 주기(checkCycle): %s
+                - 관리 동기(careMotivation): %s
+                - 최근 진단 추천 요약: %s
+                - 오늘 일정: %s
+                - 오늘 저녁 상태: %s
+                - 오늘 아침 미션 수행 상태: %s
+                - 현재 남아 있는 저녁 미션: %s
+                - 선택 카테고리: %s
+                - 필요한 추천 개수: %d개
+
+                삭제 후 비어 있는 저녁 미션 슬롯만큼만 새로운 저녁 미션을 추천합니다.
+                현재 남아 있는 저녁 미션과 중복되거나 지나치게 유사한 표현은 피합니다.
+                선택 카테고리가 있으면 해당 카테고리를 우선 반영합니다.
+                POPULAR은 특정 행동 영역이 아니라 현재 사용자 상황 안에서 실천하기 쉽고 선호도가 높은 미션을 의미합니다.
+                recommendations 배열에는 정확히 %d개의 문자열만 넣습니다.
+                각 항목은 오늘 저녁에 실제로 바로 실천 가능한 문장으로 작성합니다.
+                일정 수행 자체를 미션으로 만들지 않습니다.
+                """.formatted(
+                defaultValue(age),
+                defaultValue(gender),
+                defaultValue(skinType),
+                defaultValue(goal),
+                defaultValue(checkCycle),
+                defaultValue(careMotivation),
+                defaultValue(diagnosisRecommendation),
+                defaultValue(todaySchedule),
+                defaultValue(todayConditions),
+                defaultValue(morningMissionStatus),
+                existingEveningMissions == null || existingEveningMissions.isEmpty() ? "없음" : String.join(", ", existingEveningMissions),
+                categoryText,
+                recommendationCount,
+                recommendationCount
         );
     }
 
