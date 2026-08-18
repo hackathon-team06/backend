@@ -432,26 +432,60 @@ public class MissionService {
             validateStepCompletionAllowed(mission);
 
             UserMissionStepCheck stepCheck = userMissionStepCheckRepository.findByGeneratedMissionStepId(stepId)
-                    .orElseGet(() -> UserMissionStepCheck.builder().generatedMissionStep(generatedMissionStep).build());
+                    .orElseGet(() -> UserMissionStepCheck.builder()
+                            .generatedMissionStep(generatedMissionStep)
+                            .build());
 
             boolean alreadyChecked = stepCheck.isChecked();
             stepCheck.updateChecked(true);
             userMissionStepCheckRepository.saveAndFlush(stepCheck);
 
+            // 1) step 1개 완료 = 1포인트
             if (!alreadyChecked) {
                 pointService.rewardMissionStep(user, generatedMissionStep);
             }
 
+            // 2) 현재 mission(아침 또는 저녁)의 모든 step 완료 여부
             if (isAllStepsCompleted(mission)) {
-                mission.complete(LocalDateTime.now(KOREA_ZONE_ID));
-                generatedMissionRepository.saveAndFlush(mission);
+                if (mission.getStatus() != MissionStatus.COMPLETED) {
+                    mission.complete(LocalDateTime.now(KOREA_ZONE_ID));
+                    generatedMissionRepository.saveAndFlush(mission);
+                }
+
+                // 3) 아침 + 저녁 mission 둘 다 완료면 하루 완료 보너스 +2
+                if (isAllDailyMissionsCompleted(user, mission.getMissionDate())) {
+                    pointService.rewardDailyMissionComplete(user, mission.getMissionDate());
+                }
             }
+
+            // 4) 필요하면 여기서 stamp 일별 집계 갱신 호출
+            // stampService.refreshDailyStamp(user.getId(), mission.getMissionDate());
+
         } catch (CustomException e) {
             throw e;
         } catch (DataAccessException e) {
             throw new CustomException(MissionErrorCode.MISSION_STEP_PROCESS_FAILED);
         }
     }
+
+
+    private boolean isAllDailyMissionsCompleted(User user, LocalDate date) {
+        List<GeneratedMission> missions = generatedMissionRepository
+                .findAllByUserAndMissionDateOrderByMissionTimeAsc(user, date);
+
+        boolean morningCompleted = missions.stream()
+                .anyMatch(mission -> mission.getMissionTime() == MissionTime.MORNING
+                        && mission.getStatus() == MissionStatus.COMPLETED);
+
+        boolean eveningCompleted = missions.stream()
+                .anyMatch(mission -> mission.getMissionTime() == MissionTime.EVENING
+                        && mission.getStatus() == MissionStatus.COMPLETED);
+
+        return morningCompleted && eveningCompleted;
+    }
+
+
+
 
     private List<MissionOptionItemResponse> toOptionItems(Collection<? extends Enum<?>> enums) {
         return enums.stream()

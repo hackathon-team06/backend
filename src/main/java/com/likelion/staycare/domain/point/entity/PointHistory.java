@@ -33,10 +33,6 @@ import java.time.LocalDateTime;
                         columnNames = {"user_id", "step_id", "reward_type"}
                 ),
                 @UniqueConstraint(
-                        name = "uk_point_history_user_mission_reward",
-                        columnNames = {"user_id", "mission_id", "reward_type"}
-                ),
-                @UniqueConstraint(
                         name = "uk_point_history_user_reward_key",
                         columnNames = {"user_id", "reward_type", "reward_key"}
                 )

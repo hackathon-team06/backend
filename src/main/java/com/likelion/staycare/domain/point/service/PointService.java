@@ -1,6 +1,5 @@
 package com.likelion.staycare.domain.point.service;
 
-import com.likelion.staycare.domain.mission.entity.GeneratedMission;
 import com.likelion.staycare.domain.mission.entity.GeneratedMissionStep;
 import com.likelion.staycare.domain.point.dto.response.PointResponse;
 import com.likelion.staycare.domain.point.entity.PointHistory;
@@ -19,14 +18,20 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PointService {
 
     private static final int STEP_POINT = 1;
+    private static final int DAILY_COMPLETE_BONUS_POINT = 2;
     private static final int DIAGNOSIS_REWARD_POINT = 10;
+
     private static final String DIAGNOSIS_REWARD_KEY = "ONBOARDING_DIAGNOSIS";
+    private static final String DAILY_COMPLETE_KEY_PREFIX = "DAILY_MISSION_COMPLETE:";
+    private static final String STAMP_COMPLETION_KEY_PREFIX = "STAMP_COMPLETION:";
 
     private final UserRepository userRepository;
     private final PointHistoryRepository pointHistoryRepository;
@@ -43,14 +48,14 @@ public class PointService {
     }
 
     @Transactional
-    public void rewardMissionStep(User user, GeneratedMissionStep step) {
+    public int rewardMissionStep(User user, GeneratedMissionStep step) {
         try {
             if (pointHistoryRepository.existsByUserIdAndStepIdAndRewardType(
                     user.getId(),
                     step.getId(),
                     PointRewardType.MISSION_STEP
             )) {
-                return;
+                return 0;
             }
 
             pointHistoryRepository.saveAndFlush(
@@ -64,18 +69,41 @@ public class PointService {
                             .build()
             );
 
-            PointWallet pointWallet = getOrCreatePointWallet(user);
-            pointWallet.addPoint(STEP_POINT);
-            pointWalletRepository.saveAndFlush(pointWallet);
+            addPointToWallet(user, STEP_POINT);
+            return STEP_POINT;
+
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateRewardException(e)) {
-                return;
+                return 0;
             }
             throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         } catch (DataAccessException e) {
             throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         }
     }
+
+    @Transactional
+    public int rewardDailyMissionComplete(User user, LocalDate date) {
+        String rewardKey = DAILY_COMPLETE_KEY_PREFIX + date;
+        return rewardOnceByRewardKey(
+                user,
+                PointRewardType.DAILY_MISSION_COMPLETE,
+                rewardKey,
+                DAILY_COMPLETE_BONUS_POINT
+        );
+    }
+
+    @Transactional
+    public int rewardStampCompletion(User user, Long stampBookId, int rewardPoint) {
+        String rewardKey = "STAMP_COMPLETION:" + stampBookId;
+        return rewardOnceByRewardKey(
+                user,
+                PointRewardType.STAMP_COMPLETION,
+                rewardKey,
+                rewardPoint
+        );
+    }
+
 
     @Transactional
     public int rewardDiagnosisComplete(User user) {
@@ -99,11 +127,9 @@ public class PointService {
                             .build()
             );
 
-            PointWallet pointWallet = getOrCreatePointWallet(user);
-            pointWallet.addPoint(DIAGNOSIS_REWARD_POINT);
-            pointWalletRepository.saveAndFlush(pointWallet);
-
+            addPointToWallet(user, DIAGNOSIS_REWARD_POINT);
             return DIAGNOSIS_REWARD_POINT;
+
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateRewardException(e)) {
                 return 0;
@@ -112,6 +138,51 @@ public class PointService {
         } catch (DataAccessException e) {
             throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
         }
+    }
+
+    private int rewardOnceByRewardKey(
+            User user,
+            PointRewardType rewardType,
+            String rewardKey,
+            int amount
+    ) {
+        try {
+            if (pointHistoryRepository.existsByUserIdAndRewardTypeAndRewardKey(
+                    user.getId(),
+                    rewardType,
+                    rewardKey
+            )) {
+                return 0;
+            }
+
+            pointHistoryRepository.saveAndFlush(
+                    PointHistory.builder()
+                            .user(user)
+                            .mission(null)
+                            .step(null)
+                            .rewardType(rewardType)
+                            .rewardKey(rewardKey)
+                            .amount(amount)
+                            .build()
+            );
+
+            addPointToWallet(user, amount);
+            return amount;
+
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateRewardException(e)) {
+                return 0;
+            }
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        } catch (DataAccessException e) {
+            throw new CustomException(PointErrorCode.POINT_PROCESS_FAILED);
+        }
+    }
+
+    private void addPointToWallet(User user, int amount) {
+        PointWallet pointWallet = getOrCreatePointWallet(user);
+        pointWallet.addPoint(amount);
+        pointWalletRepository.saveAndFlush(pointWallet);
     }
 
     private void validateUserExists(Long userId) {
@@ -151,7 +222,6 @@ public class PointService {
     private boolean isDuplicateRewardException(DataIntegrityViolationException e) {
         String message = extractMessage(e);
         return message.contains("uk_point_history_user_step_reward")
-                || message.contains("uk_point_history_user_mission_reward")
                 || message.contains("uk_point_history_user_reward_key");
     }
 

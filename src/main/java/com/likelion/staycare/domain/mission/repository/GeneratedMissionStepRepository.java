@@ -14,4 +14,6 @@ public interface GeneratedMissionStepRepository extends JpaRepository<GeneratedM
             GeneratedMission mission,
             int stepOrder
     );
+
+    List<GeneratedMissionStep> findAllByGeneratedMissionIn(List<GeneratedMission> missions);
 }
