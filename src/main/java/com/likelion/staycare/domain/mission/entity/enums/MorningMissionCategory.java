@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
                 SLEEP_REST=수면/휴식
                 HYGIENE=위생 관리
                 EXERCISE_STRETCHING=운동/스트레칭
-                POPULAR=인기 미션
+                POPULAR=인기 미션x`
                 """
 )
 public enum MorningMissionCategory {
