@@ -15,6 +15,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Optional<Product> findByIdAndIsActiveTrue(Long productId);
 
+    @EntityGraph(attributePaths = "skinTypes")
+    @Query("""
+            select p
+            from Product p
+            where p.id = :productId
+              and p.isActive = true
+            """)
+    Optional<Product> findActiveProductDetailById(@Param("productId") Long productId);
+
     List<Product> findAllByIsActiveTrueAndImageUrlStartingWith(String imageUrlPrefix);
 
     @EntityGraph(attributePaths = "skinTypes")

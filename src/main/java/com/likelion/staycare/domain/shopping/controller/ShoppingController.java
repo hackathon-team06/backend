@@ -2,6 +2,7 @@ package com.likelion.staycare.domain.shopping.controller;
 
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
 import com.likelion.staycare.domain.shopping.dto.response.PointPriceResponse;
+import com.likelion.staycare.domain.shopping.dto.response.ProductDetailResponse;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
 import com.likelion.staycare.domain.shopping.service.ShoppingService;
 import com.likelion.staycare.global.security.CustomUserDetails;
@@ -37,7 +38,7 @@ public class ShoppingController {
 
     private final ShoppingService shoppingService;
 
-    @Operation(summary = "제휴 상품 등록", description = "Swagger에서 제휴 상품 정보를 직접 입력하여 등록합니다.")
+    @Operation(summary = "테스트 상품 등록", description = "Swagger에서 테스트 상품 정보를 직접 입력하여 등록합니다.")
     @PostMapping("/products")
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody ProductCreateRequest request
@@ -50,8 +51,8 @@ public class ShoppingController {
             description = """
                     피부타입과 카테고리에 맞는 상품 목록을 조회합니다.
 
-                    각 상품 응답에는 현재 로그인 사용자의 보유 포인트를
-                    1P=1원 기준으로 현재 판매가(price)에 전부 적용했을 때의
+                    각 상품 응답에는 현재 로그인 사용자의 보유 포인트를 기준으로
+                    1P=1원 기준으로 현재 판매가(price)에 모두 적용했을 때의
                     예상 가격이 포함됩니다.
 
                     포인트는 실제로 차감되지 않습니다.
@@ -95,10 +96,10 @@ public class ShoppingController {
             description = """
                     DB에 저장된 활성 상품 중 랜덤으로 최대 5개를 반환합니다.
 
-                    - 동일 상품은 한 응답 안에서 중복되지 않습니다.
+                    - 동일 상품은 한 응답 내에서 중복되지 않습니다.
                     - 상품이 5개 미만이면 존재하는 상품만 반환합니다.
                     - 상품이 없으면 빈 배열([])을 반환합니다.
-                    - 실제 구매량, 인기순, 연령대 통계 기반 추천이 아닙니다.
+                    - 실제 구매 인기나 통계 기반 추천은 아닙니다.
                     - 호출할 때마다 결과가 달라질 수 있습니다.
                     """
     )
@@ -129,24 +130,6 @@ public class ShoppingController {
                                                 "appliedPoints": 1500,
                                                 "pointDiscountAmount": 1500,
                                                 "pointAppliedPrice": 16500
-                                              },
-                                              {
-                                                "productId": 3,
-                                                "name": "판테놀 장벽 크림",
-                                                "brand": "브랜드명",
-                                                "category": "CREAM",
-                                                "skinTypes": ["DRY", "NORMAL"],
-                                                "imageUrl": "https://example.com/image2.jpg",
-                                                "purchaseUrl": "https://example.com/product2",
-                                                "price": 23000,
-                                                "originalPrice": 28000,
-                                                "discountRate": 17,
-                                                "priceUpdatedAt": "2026-08-16T09:30:00",
-                                                "liked": true,
-                                                "availablePoints": 1500,
-                                                "appliedPoints": 1500,
-                                                "pointDiscountAmount": 1500,
-                                                "pointAppliedPrice": 21500
                                               }
                                             ]
                                             """
@@ -160,6 +143,56 @@ public class ShoppingController {
     ) {
         return ResponseEntity.ok(
                 shoppingService.getRandomProducts(userDetails.getUserId())
+        );
+    }
+
+    @Operation(
+            summary = "상품 상세 조회",
+            description = """
+                    상품 상세페이지에서 사용하는 API입니다.
+
+                    가격, 할인율, 평점, 리뷰 수, 피부타입, 찜 여부를 반환합니다.
+                    수량별 가격 계산은 프론트에서 price × quantity로 처리합니다.
+                    구매하기는 purchaseUrl로 외부 이동합니다.
+                    용량/배송/포인트 처리는 하지 않습니다.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "상품 상세 조회 성공",
+                    content = @Content(
+                            schema = @Schema(implementation = ProductDetailResponse.class),
+                            examples = @ExampleObject(
+                                    name = "productDetail",
+                                    value = """
+                                            {
+                                              "productId": 17,
+                                              "name": "레드 블레미쉬 클리어 수딩 크림",
+                                              "brand": "닥터지",
+                                              "category": "CREAM",
+                                              "imageUrl": "https://example.com/image.jpg",
+                                              "purchaseUrl": "https://example.com/product",
+                                              "price": 28500,
+                                              "originalPrice": 38000,
+                                              "discountRate": 25,
+                                              "rating": 5.0,
+                                              "reviewCount": 3306,
+                                              "liked": true,
+                                              "skinTypes": ["OILY", "COMBINATION", "DEHYDRATED"]
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<ProductDetailResponse> getProductDetail(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long productId
+    ) {
+        return ResponseEntity.ok(
+                shoppingService.getProductDetail(userDetails.getUserId(), productId)
         );
     }
 
@@ -183,7 +216,7 @@ public class ShoppingController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "제휴 상품 삭제", description = "활성 상태의 제휴 상품을 삭제 처리합니다.")
+    @Operation(summary = "테스트 상품 삭제", description = "활성 상태의 테스트 상품을 삭제 처리합니다.")
     @DeleteMapping("/products/{productId}")
     public ResponseEntity<Void> deleteProduct(
             @PathVariable Long productId
@@ -217,8 +250,8 @@ public class ShoppingController {
     @Operation(
             summary = "포인트 적용 예상 가격 조회",
             description = """
-                    현재 상품의 제휴사 할인 판매가(price)에
-                    사용자의 포인트를 1P = 1원 기준으로 추가 적용했을 때의
+                    현재 상품의 판매가(price)에
+                    사용자의 보유 포인트를 1P = 1원 기준으로 적용했을 때의
                     예상 가격을 계산합니다.
 
                     실제 결제 및 포인트 차감은 수행하지 않습니다.
@@ -229,7 +262,7 @@ public class ShoppingController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long productId,
             @Parameter(
-                    description = "적용해 볼 포인트 수",
+                    description = "적용할 포인트 값",
                     schema = @Schema(type = "integer", example = "1000", minimum = "0")
             )
             @RequestParam Integer usePoints
