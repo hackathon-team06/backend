@@ -10,6 +10,7 @@ import com.likelion.staycare.domain.mission.dto.response.EveningMissionRecommend
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionOptionsResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionStepCompleteResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionStepDetailResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningRoutineRecommendationResponse;
@@ -142,13 +143,12 @@ public class MissionController {
                     """
     )
     @PatchMapping("/steps/{stepId}")
-    public ResponseEntity<Void> completeMissionStep(
+    public ResponseEntity<MissionStepCompleteResponse> completeMissionStep(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(description = "완료 처리할 GeneratedMissionStep ID", example = "101")
             @PathVariable Long stepId
     ) {
-        missionService.completeStep(userDetails.getUserId(), stepId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(missionService.completeStep(userDetails.getUserId(), stepId));
     }
 
     @Operation(

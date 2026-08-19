@@ -21,6 +21,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -74,6 +75,12 @@ public class Product extends BaseTimeEntity {
     @Column(name = "discount_rate")
     private Integer discountRate;
 
+    @Column(precision = 2, scale = 1)
+    private BigDecimal rating;
+
+    @Column(name = "review_count", nullable = false)
+    private Integer reviewCount;
+
     @Column(name = "price_updated_at", nullable = false)
     private LocalDateTime priceUpdatedAt;
 
@@ -90,7 +97,9 @@ public class Product extends BaseTimeEntity {
             String purchaseUrl,
             Integer price,
             Integer originalPrice,
-            Integer discountRate
+            Integer discountRate,
+            BigDecimal rating,
+            Integer reviewCount
     ) {
         this.name = name;
         this.brand = brand;
@@ -101,6 +110,8 @@ public class Product extends BaseTimeEntity {
         this.price = price;
         this.originalPrice = originalPrice;
         this.discountRate = discountRate;
+        this.rating = rating;
+        this.reviewCount = reviewCount == null ? 0 : reviewCount;
         this.priceUpdatedAt = LocalDateTime.now();
         this.isActive = true;
     }

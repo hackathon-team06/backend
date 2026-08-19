@@ -4,6 +4,7 @@ import com.likelion.staycare.domain.diagnosis.entity.SkinType;
 import com.likelion.staycare.domain.point.service.PointService;
 import com.likelion.staycare.domain.shopping.dto.request.ProductCreateRequest;
 import com.likelion.staycare.domain.shopping.dto.response.PointPriceResponse;
+import com.likelion.staycare.domain.shopping.dto.response.ProductDetailResponse;
 import com.likelion.staycare.domain.shopping.dto.response.ProductResponse;
 import com.likelion.staycare.domain.shopping.entity.Product;
 import com.likelion.staycare.domain.shopping.entity.ProductCategory;
@@ -123,6 +124,16 @@ public class ShoppingService {
                 .pointDiscountAmount(usedPoints)
                 .pointAppliedPrice(pointAppliedPrice)
                 .build();
+    }
+
+    public ProductDetailResponse getProductDetail(Long userId, Long productId) {
+        getUser(userId);
+
+        Product product = productRepository.findActiveProductDetailById(productId)
+                .orElseThrow(() -> new CustomException(ShoppingErrorCode.PRODUCT_NOT_FOUND));
+
+        boolean liked = productLikeRepository.existsByUserIdAndProductId(userId, productId);
+        return ProductDetailResponse.from(product, liked);
     }
 
     @Transactional

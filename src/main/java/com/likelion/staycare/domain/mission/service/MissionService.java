@@ -14,6 +14,7 @@ import com.likelion.staycare.domain.mission.dto.response.EveningMissionRecommend
 import com.likelion.staycare.domain.mission.dto.response.EveningMissionResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionByDateResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionOptionItemResponse;
+import com.likelion.staycare.domain.mission.dto.response.MissionStepCompleteResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionOptionsResponse;
 import com.likelion.staycare.domain.mission.dto.response.MissionStepDetailResponse;
 import com.likelion.staycare.domain.mission.dto.response.MorningMissionResponse;
@@ -261,7 +262,6 @@ public class MissionService {
             return toEveningMissionResponse(existingMission);
         }
 
-        validateEveningMissionTime();
         GeneratedMission morningMission = getOrCreateMorningMission(user, today, true);
 
         DailySkinCheck dailySkinCheck = dailySkinCheckRepository.findByUserAndCheckedDate(user, today)
@@ -502,7 +502,7 @@ public class MissionService {
     }
 
     @Transactional
-    public void completeStep(Long userId, Long stepId) {
+    public MissionStepCompleteResponse completeStep(Long userId, Long stepId) {
         try {
             User user = getUser(userId);
             GeneratedMissionStep generatedMissionStep = generatedMissionStepRepository.findById(stepId)
@@ -520,10 +520,14 @@ public class MissionService {
             boolean alreadyChecked = stepCheck.isChecked();
             stepCheck.updateChecked(true);
             userMissionStepCheckRepository.saveAndFlush(stepCheck);
+            int stepRewardPoint = 0;
+            int dailyBonusPoint = 0;
+            boolean missionCompleted = false;
+            boolean dailyMissionsCompleted = false;
 
             // 1) step 1개 완료 = 1포인트
             if (!alreadyChecked) {
-                pointService.rewardMissionStep(user, generatedMissionStep);
+                stepRewardPoint = pointService.rewardMissionStep(user, generatedMissionStep);
             }
 
             // 2) 현재 mission(아침 또는 저녁)의 모든 step 완료 여부
@@ -532,15 +536,26 @@ public class MissionService {
                     mission.complete(LocalDateTime.now(KOREA_ZONE_ID));
                     generatedMissionRepository.saveAndFlush(mission);
                 }
+                missionCompleted = true;
 
                 // 3) 아침 + 저녁 mission 둘 다 완료면 하루 완료 보너스 +2
                 if (isAllDailyMissionsCompleted(user, mission.getMissionDate())) {
-                    pointService.rewardDailyMissionComplete(user, mission.getMissionDate());
+                    dailyMissionsCompleted = true;
+                    dailyBonusPoint = pointService.rewardDailyMissionComplete(user, mission.getMissionDate());
                 }
             }
 
             // 4) 필요하면 여기서 stamp 일별 집계 갱신 호출
             // stampService.refreshDailyStamp(user.getId(), mission.getMissionDate());
+            int totalPoint = pointService.getMyPoint(user.getId()).getPoint();
+            return MissionStepCompleteResponse.builder()
+                    .stepRewardPoint(stepRewardPoint)
+                    .dailyBonusPoint(dailyBonusPoint)
+                    .awardedPoint(stepRewardPoint + dailyBonusPoint)
+                    .totalPoint(totalPoint)
+                    .missionCompleted(missionCompleted)
+                    .dailyMissionsCompleted(dailyMissionsCompleted)
+                    .build();
 
         } catch (CustomException e) {
             throw e;
@@ -674,11 +689,6 @@ public class MissionService {
         );
         saveGeneratedMissionSteps(savedMission, steps);
 
-        if (allowAutoMissed && isAfterMorningWindow()) {
-            savedMission.fail();
-            generatedMissionRepository.save(savedMission);
-        }
-
         return savedMission;
     }
 
@@ -761,16 +771,7 @@ public class MissionService {
         }
     }
 
-    private void validateEveningMissionTime() {
-        if (!isAfterMorningWindow()) {
-            throw new CustomException(MissionErrorCode.EVENING_MISSION_TIME_ONLY);
-        }
-    }
-
     private void validateStepCompletionAllowed(GeneratedMission mission) {
-        if (mission.getMissionTime() == MissionTime.MORNING && mission.getStatus() == MissionStatus.FAILED) {
-            throw new CustomException(MissionErrorCode.MISSION_STEP_COMPLETION_NOT_ALLOWED);
-        }
     }
 
     private LocalDate getCurrentDate() {
