@@ -70,6 +70,21 @@ AI 가 건강한 습관을 부담 없이 이어갈 수 있도록 도와주는 �
     - 예시 : `ui/#12/home`
 - `refactor/#이슈번호/명칭` : 리팩토링 작업 브랜치
     - 예시 : `refactor/#12/component-structure`
+ 
+## 🛠 기술 스택
+
+| 구분 | 기술 |
+| --- | --- |
+| **Frontend** | React 19, JavaScript (ES6+), Vite 8, Tailwind CSS 4 |
+| **State & Routing** | Zustand 5, React Router DOM 7 |
+| **API** | Axios, REST API |
+| **Backend** | Java, Spring Boot, JPA |
+| **Database** | MySQL |
+| **Cloud & Infrastructure** | AWS, AWS S3, Docker |
+| **CI/CD** | GitHub Actions |
+| **External Service** | Google Calendar OAuth |
+| **API Documentation** | OpenAPI, Swagger UI, springdoc-openapi |
+| **Collaboration** | GitHub, Figma, Notion |
 
 ## 🌊 Flow
 
