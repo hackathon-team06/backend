@@ -154,19 +154,10 @@ Stay:Care의 API 명세서는 아래 Notion 페이지에서 확인할 수 있습
 
 ## 🌊 Flow
 
-```mermaid
-flowchart LR
-    A[Issue 생성] --> B[최신 develop 브랜치에서<br/>작업 브랜치 생성]
-    B --> C[기능 개발 및<br/>커밋 진행]
-    C --> D[develop 브랜치로<br/>Pull Request 생성]
-    D --> E[코드 리뷰 진행]
-    E --> F[리뷰 완료 후<br/>develop 브랜치로 병합]
-    F --> G[병합 완료 후<br/>작업 브랜치 삭제]
-
-    style A fill:#F3E8FF,stroke:#7B61FF,color:#333
-    style B fill:#E8F5E9,stroke:#34A853,color:#333
-    style C fill:#E3F2FD,stroke:#4285F4,color:#333
-    style D fill:#FFF3E0,stroke:#FB8C00,color:#333
-    style E fill:#FFF8E1,stroke:#F9A825,color:#333
-    style F fill:#E0F2F1,stroke:#009688,color:#333
-    style G fill:#FFEBEE,stroke:#E53935,color:#333
+1. Issue 생성
+2. 최신 `develop` 브랜치에서 작업 브랜치 생성
+3. 기능 개발 및 커밋 진행
+4. `develop` 브랜치로 Pull Request 생성
+5. 코드 리뷰 진행
+6. 리뷰 완료 후 `develop` 브랜치로 병합
+7. 병합 완료 후 작업 브랜치 삭제
