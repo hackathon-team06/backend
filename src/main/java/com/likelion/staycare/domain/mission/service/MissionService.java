@@ -209,7 +209,9 @@ public class MissionService {
 
         morningRoutineItemRepository.saveAllAndFlush(items);
         normalizeMorningRoutineItemOrder(routine);
-        return toMorningRoutineResponse(routine, getActualMorningRoutineItems(routine));
+        List<MorningRoutineItem> actualItems = getActualMorningRoutineItems(routine);
+        syncTodayMorningMissionWithRoutine(user, actualItems);
+        return toMorningRoutineResponse(routine, actualItems);
     }
 
     public MorningRoutineResponse getMorningRoutine(Long userId) {
@@ -726,6 +728,41 @@ public class MissionService {
             );
         }
         return generatedMissionStepRepository.saveAll(generatedMissionSteps);
+    }
+
+    private void syncTodayMorningMissionWithRoutine(User user, List<MorningRoutineItem> routineItems) {
+        if (routineItems.size() != MORNING_ROUTINE_SIZE) {
+            return;
+        }
+
+        GeneratedMission morningMission = generatedMissionRepository
+                .findByUserAndMissionDateAndMissionTime(user, getCurrentDate(), MissionTime.MORNING)
+                .orElse(null);
+        if (morningMission == null || morningMission.getStatus() == MissionStatus.COMPLETED) {
+            return;
+        }
+
+        List<UserMissionStepCheck> checks = userMissionStepCheckRepository
+                .findByGeneratedMissionStepGeneratedMission(morningMission);
+        boolean hasCheckedStep = checks.stream().anyMatch(UserMissionStepCheck::isChecked);
+        if (hasCheckedStep) {
+            return;
+        }
+
+        List<GeneratedMissionStep> missionSteps = generatedMissionStepRepository
+                .findByGeneratedMissionOrderByStepOrderAsc(morningMission);
+        List<GeneratedMissionStep> routineSteps = missionSteps.stream()
+                .filter(step -> step.getStepOrder() <= MORNING_ROUTINE_SIZE)
+                .toList();
+        if (routineSteps.size() != MORNING_ROUTINE_SIZE) {
+            return;
+        }
+
+        for (int index = 0; index < MORNING_ROUTINE_SIZE; index++) {
+            routineSteps.get(index).updateContent(routineItems.get(index).getContent());
+        }
+        generatedMissionStepRepository.saveAllAndFlush(routineSteps);
+        syncScheduleDerivedStep(user.getId(), morningMission);
     }
 
     private void syncScheduleDerivedStep(Long userId, GeneratedMission mission) {
