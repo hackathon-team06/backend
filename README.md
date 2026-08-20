@@ -93,6 +93,13 @@ Stay:Care의 데이터베이스 구조는 아래 ERD에서 확인할 수 있습�
 🔗 [Stay:Care ERD 확인하기](https://www.erdcloud.com/d/LDjEJ4c6MqqoaLEjD)
 
 
+## 📚 API 명세서
+
+Stay:Care의 API 명세서는 아래 Notion 페이지에서 확인할 수 있습니다.
+
+🔗 [Stay:Care API 명세서 확인하기](https://occipital-hound-d56.notion.site/STAY-CARE-API-fea39be16b2883ae8ff981a2b7253cd7)
+
+
 ## 🌊 Flow
 
 1. Issue 생성
