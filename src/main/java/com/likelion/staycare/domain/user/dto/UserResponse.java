@@ -20,13 +20,14 @@ public record UserResponse(
         CheckCycle checkCycle,
         CareMotivation careMotivation,
         Boolean notificationEnabled,
-        Integer totalPoint
+        Integer totalPoint,
+        Boolean googleCalendarConnected   // ←
 ) {
-    public static UserResponse from(User user) {
-        return from(user, 0);
+    public static UserResponse from(User user,int totalPoint) {
+        return from(user,totalPoint, false);
     }
 
-    public static UserResponse from(User user, int totalPoint) {
+    public static UserResponse from(User user, int totalPoint,boolean googleCalendarConnected) {
         return UserResponse.builder()
                 .userId(user.getId())
                 .nickname(user.getNickname())
@@ -41,6 +42,7 @@ public record UserResponse(
                 .careMotivation(user.getCareMotivation())
                 .notificationEnabled(user.getNotificationEnabled())
                 .totalPoint(totalPoint)
+                .googleCalendarConnected(googleCalendarConnected)
                 .build();
     }
 }
