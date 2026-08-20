@@ -2,14 +2,19 @@ package com.likelion.staycare.global.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
@@ -36,7 +41,7 @@ public class SwaggerConfig {
                         )
                 )
                 .info(new Info()
-                        .title("Stay-care API 명세서")
+                        .title("Stay-care API 명세")
                         .version("1.0")
                         .description("Swagger"));
     }
@@ -47,5 +52,46 @@ public class SwaggerConfig {
                 .group("api")
                 .pathsToMatch("/**")
                 .build();
+    }
+
+    @Bean
+    public OpenApiCustomizer missionPathOrderingCustomizer() {
+        List<String> orderedPaths = List.of(
+                "/api/missions/morning-routine/recommendations",
+                "/api/missions/morning-routine/options",
+                "/api/missions/morning-routine",
+                "/api/missions/morning-routine/items/{itemId}",
+                "/api/missions/morning",
+                "/api/missions/steps/{stepId}",
+                "/api/missions/morning-routine/survey",
+                "/api/missions/evening/recommendations",
+                "/api/missions/evening/steps/{stepId}",
+                "/api/missions/evening/steps",
+                "/api/missions/evening",
+                "/api/missions/today",
+                "/api/missions/options",
+                "/api/missions/{missionId}/steps",
+                "/api/missions/date"
+        );
+
+        return openApi -> {
+            if (openApi.getPaths() == null || openApi.getPaths().isEmpty()) {
+                return;
+            }
+
+            Paths existingPaths = new Paths();
+            existingPaths.putAll(openApi.getPaths());
+
+            Paths ordered = new Paths();
+            for (String path : orderedPaths) {
+                PathItem pathItem = existingPaths.remove(path);
+                if (pathItem != null) {
+                    ordered.addPathItem(path, pathItem);
+                }
+            }
+
+            existingPaths.forEach(ordered::addPathItem);
+            openApi.setPaths(ordered);
+        };
     }
 }
