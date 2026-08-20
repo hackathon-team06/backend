@@ -86,6 +86,13 @@ AI 가 건강한 습관을 부담 없이 이어갈 수 있도록 도와주는 �
 | **API Documentation** | OpenAPI, Swagger UI, springdoc-openapi |
 | **Collaboration** | GitHub, Figma, Notion |
 
+## 🗄️ ERD
+
+Stay:Care의 데이터베이스 구조는 아래 ERD에서 확인할 수 있습니다.
+
+🔗 [Stay:Care ERD 확인하기](https://www.erdcloud.com/d/LDjEJ4c6MqqoaLEjD)
+
+
 ## 🌊 Flow
 
 1. Issue 생성
