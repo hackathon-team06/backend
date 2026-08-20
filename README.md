@@ -1,6 +1,4 @@
-<p align="center">
-<img src="../images/staycare_main.png" width="100%" />
-</p>
+
 
 <p align="center"><b>🦁 서경대학교 멋쟁이사자처럼 14기 중앙해커톤 6팀</b></p>
 
