@@ -1,5 +1,6 @@
 package com.likelion.staycare.domain.user.service;
 
+import com.likelion.staycare.domain.googlecalendar.repository.GoogleCalendarConnectionRepository;
 import com.likelion.staycare.domain.point.entity.PointWallet;
 import com.likelion.staycare.domain.point.repository.PointWalletRepository;
 import com.likelion.staycare.domain.user.dto.*;
@@ -25,6 +26,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final S3Uploader s3Uploader;
     private final PointWalletRepository pointWalletRepository;
+    private final GoogleCalendarConnectionRepository googleCalendarConnectionRepository;
+
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -72,7 +75,10 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
-        return UserResponse.from(user, getTotalPoint(userId));
+        boolean googleCalendarConnected =
+                googleCalendarConnectionRepository.existsByUser_Id(userId);
+
+        return UserResponse.from(user, getTotalPoint(userId), googleCalendarConnected);
     }
 
     @Transactional
